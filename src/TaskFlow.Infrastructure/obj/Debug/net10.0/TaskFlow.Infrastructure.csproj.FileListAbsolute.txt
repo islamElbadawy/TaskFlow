@@ -17,3 +17,4 @@ D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Infrastructure\obj\Debug\net10
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Infrastructure\obj\Debug\net10.0\TaskFlow.Infrastructure.pdb
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Infrastructure\obj\Debug\net10.0\TaskFlow.Infrastructure.genruntimeconfig.cache
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Infrastructure\obj\Debug\net10.0\ref\TaskFlow.Infrastructure.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Infrastructure\obj\Debug\net10.0\TaskFlow.Infrastructure.sourcelink.json

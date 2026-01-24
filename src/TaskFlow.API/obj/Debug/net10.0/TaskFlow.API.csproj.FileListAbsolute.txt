@@ -172,3 +172,14 @@ D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\refint\T
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\TaskFlow.API.pdb
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\TaskFlow.API.genruntimeconfig.cache
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\ref\TaskFlow.API.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\AutoMapper.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\AutoMapper.Extensions.Microsoft.DependencyInjection.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\BCrypt.Net-Next.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net30.LinqBridge.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net35.Actions.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net35.Threading.Tasks.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net35.TypeInfo.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.AsyncBridge.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.BaseTypes.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.ValueTuple.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\TaskFlow.API.sourcelink.json

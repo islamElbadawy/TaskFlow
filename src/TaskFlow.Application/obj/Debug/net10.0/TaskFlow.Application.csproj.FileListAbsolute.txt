@@ -13,3 +13,4 @@ D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Application\obj\Debug\net10.0\
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Application\obj\Debug\net10.0\refint\TaskFlow.Application.dll
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Application\obj\Debug\net10.0\TaskFlow.Application.pdb
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Application\obj\Debug\net10.0\ref\TaskFlow.Application.dll
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.Application\obj\Debug\net10.0\TaskFlow.Application.sourcelink.json
