@@ -24,7 +24,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
         // Add AutoMapper (if you want to use it)
-        services.AddAutoMapper(cfg => { }, Assembly.GetExecutingAssembly());
+        services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
         return services;
     }

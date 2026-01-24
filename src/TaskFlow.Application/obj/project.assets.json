@@ -20,6 +20,19 @@
           }
         }
       },
+      "AutoMapper.Extensions.Microsoft.DependencyInjection/12.0.1": {
+        "type": "package",
+        "dependencies": {
+          "AutoMapper": "[12.0.1]",
+          "Microsoft.Extensions.Options": "6.0.0"
+        },
+        "compile": {
+          "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll": {}
+        }
+      },
       "FluentValidation/12.1.1": {
         "type": "package",
         "compile": {
@@ -183,6 +196,130 @@
           }
         }
       },
+      "Net30.LinqBridge/1.3.0": {
+        "type": "package",
+        "dependencies": {
+          "Net35.Actions": "1.1.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/Net30.LinqBridge.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Net30.LinqBridge.dll": {}
+        }
+      },
+      "Net35.Actions/1.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/Net35.Actions.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Net35.Actions.dll": {}
+        }
+      },
+      "Net35.Threading.Tasks/1.1.0": {
+        "type": "package",
+        "dependencies": {
+          "Net35.Actions": "1.1.0",
+          "Net35.TypeInfo": "1.1.0",
+          "Net4x.ValueTuple": "1.1.0"
+        },
+        "compile": {
+          "lib/netstandard2.1/Net35.Threading.Tasks.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/Net35.Threading.Tasks.dll": {}
+        }
+      },
+      "Net35.TypeInfo/1.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.0/Net35.TypeInfo.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Net35.TypeInfo.dll": {}
+        }
+      },
+      "Net4x.AsyncBridge/1.1.0": {
+        "type": "package",
+        "dependencies": {
+          "Net35.Threading.Tasks": "1.1.0",
+          "Net35.TypeInfo": "1.1.0",
+          "Net4x.BaseTypes": "1.1.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/Net4x.AsyncBridge.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/Net4x.AsyncBridge.dll": {}
+        },
+        "build": {
+          "build/_._": {}
+        }
+      },
+      "Net4x.BaseTypes/1.1.0": {
+        "type": "package",
+        "dependencies": {
+          "Net30.LinqBridge": "1.3.0",
+          "Net35.Actions": "1.1.0",
+          "Net35.Threading.Tasks": "1.1.0",
+          "Net35.TypeInfo": "1.1.0",
+          "Net4x.ValueTuple": "1.1.0"
+        },
+        "compile": {
+          "lib/net6.0/Net4x.BaseTypes.dll": {}
+        },
+        "runtime": {
+          "lib/net6.0/Net4x.BaseTypes.dll": {}
+        }
+      },
+      "Net4x.FluentValidation.DependencyInjectionExtensions/11.5.2": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Extensions.Dependencyinjection.Abstractions": "2.1.0",
+          "Net35.Actions": "1.1.0",
+          "Net4x.AsyncBridge": "1.1.0",
+          "Net4x.BaseTypes": "1.1.0",
+          "Net4x.FluentValidation.Library": "11.5.2"
+        },
+        "compile": {
+          "lib/netstandard2.1/FluentValidation.DependencyInjectionExtensions.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.1/FluentValidation.DependencyInjectionExtensions.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Net4x.FluentValidation.Library/11.5.2": {
+        "type": "package",
+        "dependencies": {
+          "Net35.Actions": "1.1.0",
+          "Net4x.AsyncBridge": "1.1.0",
+          "Net4x.BaseTypes": "1.1.0"
+        },
+        "compile": {
+          "lib/net7.0/FluentValidation.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net7.0/FluentValidation.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Net4x.ValueTuple/1.1.0": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.1/Net4x.ValueTuple.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/Net4x.ValueTuple.dll": {}
+        }
+      },
       "TaskFlow.Domain/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
@@ -218,6 +355,20 @@
         "lib/net9.0/AutoMapper.xml",
         "lib/netstandard2.0/AutoMapper.dll",
         "lib/netstandard2.0/AutoMapper.xml"
+      ]
+    },
+    "AutoMapper.Extensions.Microsoft.DependencyInjection/12.0.1": {
+      "sha512": "+g/K+Vpe3gGMKGzjslMOdqNlkikScDjWfVvmWTayrDHaG/n2pPmFBMa+jKX1r/h6BDGFdkyRjAuhFE3ykW+r1g==",
+      "type": "package",
+      "path": "automapper.extensions.microsoft.dependencyinjection/12.0.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",
+        "automapper.extensions.microsoft.dependencyinjection.nuspec",
+        "icon.png",
+        "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll"
       ]
     },
     "FluentValidation/12.1.1": {
@@ -524,6 +675,195 @@
         "microsoft.identitymodel.tokens.nuspec"
       ]
     },
+    "Net30.LinqBridge/1.3.0": {
+      "sha512": "DlxQjnIVLqUnTObqry+qN2Ydzz2nx/wJTDeWHAQCBq6zB8VB5iGbsZnL9i+DIlunkb+4kp9r6nyEPuasL9m4MA==",
+      "type": "package",
+      "path": "net30.linqbridge/1.3.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net30.LinqBridge.dll",
+        "lib/net30/Net30.LinqBridge.dll",
+        "lib/net35/Net30.LinqBridge.dll",
+        "lib/net40/Net30.LinqBridge.dll",
+        "lib/net45/Net30.LinqBridge.dll",
+        "lib/netstandard2.0/Net30.LinqBridge.dll",
+        "net30.linqbridge.1.3.0.nupkg.sha512",
+        "net30.linqbridge.nuspec"
+      ]
+    },
+    "Net35.Actions/1.1.0": {
+      "sha512": "kzoFqmSrtX7lyEUzF+K/YNllfoorKlaJupNgS2+9m/CuVEGEXm0eweRetl+idm2scHKUd4lexIC3WEQZNhHyIQ==",
+      "type": "package",
+      "path": "net35.actions/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net35.Actions.dll",
+        "lib/net30/Net35.Actions.dll",
+        "lib/net35/Net35.Actions.dll",
+        "lib/net40/Net35.Actions.dll",
+        "lib/net45/Net35.Actions.dll",
+        "lib/netstandard2.0/Net35.Actions.dll",
+        "net35.actions.1.1.0.nupkg.sha512",
+        "net35.actions.nuspec"
+      ]
+    },
+    "Net35.Threading.Tasks/1.1.0": {
+      "sha512": "fmhQIezhsx9kljDhoM1WASO4vMtBLNC4O6c7YDXOU9HaY4+FNlebbyqwP6U7PL3nad8nW8yMNqSr0DYUdGz0yA==",
+      "type": "package",
+      "path": "net35.threading.tasks/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net35.Threading.Tasks.dll",
+        "lib/net30/Net35.Threading.Tasks.dll",
+        "lib/net35/Net35.Threading.Tasks.dll",
+        "lib/net40/Net35.Threading.Tasks.dll",
+        "lib/netstandard2.0/Net35.Threading.Tasks.dll",
+        "lib/netstandard2.1/Net35.Threading.Tasks.dll",
+        "net35.threading.tasks.1.1.0.nupkg.sha512",
+        "net35.threading.tasks.nuspec"
+      ]
+    },
+    "Net35.TypeInfo/1.1.0": {
+      "sha512": "I3oQHGhsJTujwESes+G5VUTJjpYW2oE0pfd2N1pTdNqND3hy6uUQ5cegOXan/5J3c0bOTt+/U9yhHB6N6/mzkw==",
+      "type": "package",
+      "path": "net35.typeinfo/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net35.TypeInfo.dll",
+        "lib/net40/Net35.TypeInfo.dll",
+        "lib/netstandard2.0/Net35.TypeInfo.dll",
+        "net35.typeinfo.1.1.0.nupkg.sha512",
+        "net35.typeinfo.nuspec"
+      ]
+    },
+    "Net4x.AsyncBridge/1.1.0": {
+      "sha512": "WghAhaQGKP55sw4VI1Hyiqx0jmZL1KkkURS3UKcQmlEMua3c9/yEm2sasqTmUdee080iy1WiOc0QEtZRCPVykQ==",
+      "type": "package",
+      "path": "net4x.asyncbridge/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "build/Net4x.AsyncBridge.props",
+        "lib/net20/Net4x.AsyncBridge.dll",
+        "lib/net30/Net4x.AsyncBridge.dll",
+        "lib/net35/Net4x.AsyncBridge.dll",
+        "lib/net40/Net4x.AsyncBridge.dll",
+        "lib/net45/Net4x.AsyncBridge.dll",
+        "lib/net45/_._",
+        "lib/net451/Net4x.AsyncBridge.dll",
+        "lib/net452/Net4x.AsyncBridge.dll",
+        "lib/net46/Net4x.AsyncBridge.dll",
+        "lib/net461/Net4x.AsyncBridge.dll",
+        "lib/net462/Net4x.AsyncBridge.dll",
+        "lib/net47/Net4x.AsyncBridge.dll",
+        "lib/net471/Net4x.AsyncBridge.dll",
+        "lib/net472/Net4x.AsyncBridge.dll",
+        "lib/net48/Net4x.AsyncBridge.dll",
+        "lib/net481/Net4x.AsyncBridge.dll",
+        "lib/netstandard2.0/Net4x.AsyncBridge.dll",
+        "net4x.asyncbridge.1.1.0.nupkg.sha512",
+        "net4x.asyncbridge.nuspec"
+      ]
+    },
+    "Net4x.BaseTypes/1.1.0": {
+      "sha512": "fGC+Go/qMq492l8dgcJQWGcJc1WdMnObadXvcKB4TnlT5mKpgVDI37ihIZ0n/qT+ZYULIgG1NfN6G7nq66jBtQ==",
+      "type": "package",
+      "path": "net4x.basetypes/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net4x.BaseTypes.dll",
+        "lib/net30/Net4x.BaseTypes.dll",
+        "lib/net35/Net4x.BaseTypes.dll",
+        "lib/net40/Net4x.BaseTypes.dll",
+        "lib/net45/Net4x.BaseTypes.dll",
+        "lib/net5.0/Net4x.BaseTypes.dll",
+        "lib/net6.0/Net4x.BaseTypes.dll",
+        "lib/netstandard2.0/Net4x.BaseTypes.dll",
+        "net4x.basetypes.1.1.0.nupkg.sha512",
+        "net4x.basetypes.nuspec"
+      ]
+    },
+    "Net4x.FluentValidation.DependencyInjectionExtensions/11.5.2": {
+      "sha512": "RrgpKPYi9mE++jtWJRseUvf/wM51XwCpLUHxS4YPthk9jlheMXemOzF2TSq29x9y1jtYNy29nn1wROx/2OgsOA==",
+      "type": "package",
+      "path": "net4x.fluentvalidation.dependencyinjectionextensions/11.5.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "fluent-validation-icon.png",
+        "lib/net40/FluentValidation.DependencyInjectionExtensions.dll",
+        "lib/net40/FluentValidation.DependencyInjectionExtensions.xml",
+        "lib/net461/FluentValidation.DependencyInjectionExtensions.dll",
+        "lib/net461/FluentValidation.DependencyInjectionExtensions.xml",
+        "lib/netstandard2.0/FluentValidation.DependencyInjectionExtensions.dll",
+        "lib/netstandard2.0/FluentValidation.DependencyInjectionExtensions.xml",
+        "lib/netstandard2.1/FluentValidation.DependencyInjectionExtensions.dll",
+        "lib/netstandard2.1/FluentValidation.DependencyInjectionExtensions.xml",
+        "net4x.fluentvalidation.dependencyinjectionextensions.11.5.2.nupkg.sha512",
+        "net4x.fluentvalidation.dependencyinjectionextensions.nuspec"
+      ]
+    },
+    "Net4x.FluentValidation.Library/11.5.2": {
+      "sha512": "6cE0EWf/M7sQymAa7AsvP6pHAcYy0RiZIHcGo4ARei805L/Q/RE9YBt0Q8KwnmdXK7detQaDswlPB1xBBgy0xA==",
+      "type": "package",
+      "path": "net4x.fluentvalidation.library/11.5.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "fluent-validation-icon.png",
+        "lib/net40/FluentValidation.dll",
+        "lib/net40/FluentValidation.xml",
+        "lib/net45/FluentValidation.dll",
+        "lib/net45/FluentValidation.xml",
+        "lib/net461/FluentValidation.dll",
+        "lib/net461/FluentValidation.xml",
+        "lib/net6.0/FluentValidation.dll",
+        "lib/net6.0/FluentValidation.xml",
+        "lib/net7.0/FluentValidation.dll",
+        "lib/net7.0/FluentValidation.xml",
+        "lib/netstandard2.0/FluentValidation.dll",
+        "lib/netstandard2.0/FluentValidation.xml",
+        "lib/netstandard2.1/FluentValidation.dll",
+        "lib/netstandard2.1/FluentValidation.xml",
+        "net4x.fluentvalidation.library.11.5.2.nupkg.sha512",
+        "net4x.fluentvalidation.library.nuspec"
+      ]
+    },
+    "Net4x.ValueTuple/1.1.0": {
+      "sha512": "I7I7EnujuTEurbJdeirkww86W/IThl7TznhemowW84ByroSFx3ORFfZBt4rMwdB/vOTDT4zPrfqWYXb8+9rGLg==",
+      "type": "package",
+      "path": "net4x.valuetuple/1.1.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net20/Net4x.ValueTuple.dll",
+        "lib/net30/Net4x.ValueTuple.dll",
+        "lib/net35/Net4x.ValueTuple.dll",
+        "lib/net40/Net4x.ValueTuple.dll",
+        "lib/net45/Net4x.ValueTuple.dll",
+        "lib/net451/Net4x.ValueTuple.dll",
+        "lib/net452/Net4x.ValueTuple.dll",
+        "lib/net46/Net4x.ValueTuple.dll",
+        "lib/net461/Net4x.ValueTuple.dll",
+        "lib/net462/Net4x.ValueTuple.dll",
+        "lib/net47/Net4x.ValueTuple.dll",
+        "lib/net471/Net4x.ValueTuple.dll",
+        "lib/net472/Net4x.ValueTuple.dll",
+        "lib/net48/Net4x.ValueTuple.dll",
+        "lib/net481/Net4x.ValueTuple.dll",
+        "lib/netstandard2.0/Net4x.ValueTuple.dll",
+        "lib/netstandard2.1/Net4x.ValueTuple.dll",
+        "net4x.valuetuple.1.1.0.nupkg.sha512",
+        "net4x.valuetuple.nuspec"
+      ]
+    },
     "TaskFlow.Domain/1.0.0": {
       "type": "project",
       "path": "../TaskFlow.Domain/TaskFlow.Domain.csproj",
@@ -533,8 +873,10 @@
   "projectFileDependencyGroups": {
     "net10.0": [
       "AutoMapper >= 16.0.0",
+      "AutoMapper.Extensions.Microsoft.DependencyInjection >= 12.0.1",
       "FluentValidation >= 12.1.1",
       "FluentValidation.DependencyInjectionExtensions >= 12.1.1",
+      "Net4x.FluentValidation.DependencyInjectionExtensions >= 11.5.2",
       "TaskFlow.Domain >= 1.0.0"
     ]
   },
@@ -589,6 +931,10 @@
             "target": "Package",
             "version": "[16.0.0, )"
           },
+          "AutoMapper.Extensions.Microsoft.DependencyInjection": {
+            "target": "Package",
+            "version": "[12.0.1, )"
+          },
           "FluentValidation": {
             "target": "Package",
             "version": "[12.1.1, )"
@@ -596,6 +942,10 @@
           "FluentValidation.DependencyInjectionExtensions": {
             "target": "Package",
             "version": "[12.1.1, )"
+          },
+          "Net4x.FluentValidation.DependencyInjectionExtensions": {
+            "target": "Package",
+            "version": "[11.5.2, )"
           }
         },
         "imports": [
@@ -891,5 +1241,17 @@
         }
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1608",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Detected package version outside of dependency constraint: AutoMapper.Extensions.Microsoft.DependencyInjection 12.0.1 requires AutoMapper (= 12.0.1) but version AutoMapper 16.0.0 was resolved.",
+      "libraryId": "AutoMapper",
+      "targetGraphs": [
+        "net10.0"
+      ]
+    }
+  ]
 }
