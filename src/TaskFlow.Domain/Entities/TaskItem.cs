@@ -13,12 +13,9 @@ public class TaskItem : BaseEntity
 
     public int CreatedByUserId { get; set; }
     public int AssignedToUserId { get; set; }
-    
+
     // Navigation properties
     public User CreatedBy { get; set; } = null!;
     public User? AssignedTo { get; set; }
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
-
-    public User CreatedByUser { get; set; } = null!;
-    public User AssignedToUser { get; set; } = null!;
 }
