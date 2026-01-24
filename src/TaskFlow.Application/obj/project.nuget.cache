@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "GjSrS1+Q4NA=",
+  "success": true,
+  "projectFilePath": "D:\\My Work\\Backend Tutorial\\TaskFlow\\src\\TaskFlow.Application\\TaskFlow.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hp\\.nuget\\packages\\fluentvalidation\\12.1.1\\fluentvalidation.12.1.1.nupkg.sha512"
+  ],
+  "logs": []
+}
