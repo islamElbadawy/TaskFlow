@@ -12,7 +12,7 @@ public class TaskItem : BaseEntity
     public DateTime DueDate { get; set; }
 
     public int CreatedByUserId { get; set; }
-    public int AssignedToUserId { get; set; }
+    public int? AssignedToUserId { get; set; }
 
     // Navigation properties
     public User CreatedBy { get; set; } = null!;

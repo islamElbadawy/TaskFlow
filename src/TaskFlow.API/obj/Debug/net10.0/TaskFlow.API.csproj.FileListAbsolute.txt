@@ -183,3 +183,4 @@ D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.As
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.BaseTypes.dll
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Net4x.ValueTuple.dll
 D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\obj\Debug\net10.0\TaskFlow.API.sourcelink.json
+D:\My Work\Backend Tutorial\TaskFlow\src\TaskFlow.API\bin\Debug\net10.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
