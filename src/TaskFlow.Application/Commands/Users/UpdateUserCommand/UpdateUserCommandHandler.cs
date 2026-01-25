@@ -1,11 +1,12 @@
-﻿using TaskFlow.Application.Common.Results;
+﻿using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 
 namespace TaskFlow.Application.Commands.Users.UpdateUserCommand;
 
-public class UpdateUserCommandHandler
+public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result<UserDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
 
