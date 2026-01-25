@@ -1,6 +1,8 @@
-﻿namespace TaskFlow.Infrastructure.Services;
+﻿using TaskFlow.Application.Common.Interfaces;
 
-public class PasswordService
+namespace TaskFlow.Infrastructure.Services;
+
+public class PasswordService : IPasswordService
 {
     public string HashPassword(string password)
     {
