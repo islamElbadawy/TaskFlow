@@ -11,12 +11,15 @@ namespace TaskFlow.Application.Commands.Users;
 public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, Result<UserDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPasswordService _passwordService;
 
     public RegisterUserCommandHandler(
-        IUnitOfWork unitOfWork
+        IUnitOfWork unitOfWork,
+        IPasswordService passwordService
     )
     {
         _unitOfWork = unitOfWork;
+        _passwordService = passwordService;
     }
 
     public async Task<Result<UserDto>> HandleAsync(
@@ -42,7 +45,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
             FirstName = command.FirstName,
             LastName = command.LastName,
             Email = command.Email.ToLower(),
-            //PasswordHash = _passwordHasher.HashPassword(command.Password),
+            PasswordHash = _passwordService.HashPassword(command.Password),
             Role = UserRole.User
         };
 
