@@ -27,6 +27,7 @@ public static class DependencyInjection
         // Repository pattern
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IJwtService, JwtService>();
         
         // Services
         services.AddScoped<IPasswordService, PasswordService>();

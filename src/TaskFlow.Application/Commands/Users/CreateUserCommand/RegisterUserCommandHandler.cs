@@ -29,7 +29,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
         if (string.IsNullOrWhiteSpace(command.Email))
             return Result<UserDto>.Failure("Email is required");
 
-        var existingUser = _unitOfWork.Users
+        var existingUser = await _unitOfWork.Users
             .FirstOrDefaultAsync(u => u.Email == command.Email);
 
         if (existingUser != null)
