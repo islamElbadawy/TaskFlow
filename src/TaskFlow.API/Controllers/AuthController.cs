@@ -21,7 +21,7 @@ public class AuthController : ControllerBase
     {
         var result = await _commandDispatcher.DispatchAsync(command);
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.ErrorMessage });
+            return BadRequest(result);
 
         return Ok(result);
     }
@@ -31,7 +31,7 @@ public class AuthController : ControllerBase
     {
         var result = await _commandDispatcher.DispatchAsync(command);
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.ErrorMessage });
+            return BadRequest(result);
 
         return Ok(result);
     }
