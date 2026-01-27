@@ -1,6 +1,6 @@
 ﻿namespace TaskFlow.Application.Common.Interfaces;
 
-public class ICurrentUserService
+public interface ICurrentUserService
 {
     int? UserId { get; }
     string? UserEmail { get; }

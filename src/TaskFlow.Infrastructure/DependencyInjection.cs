@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TaskFlow.Application.Common.Interfaces;
-using TaskFlow.Domain.Entities;
 using TaskFlow.Domain.Interfaces;
 using TaskFlow.Infrastructure.Data.Context;
 using TaskFlow.Infrastructure.Data.Repositories;
@@ -23,12 +21,11 @@ public static class DependencyInjection
             b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
 
-        
         // Repository pattern
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IJwtService, JwtService>();
-        
+
         // Services
         services.AddScoped<IPasswordService, PasswordService>();
         services.AddHttpContextAccessor();
