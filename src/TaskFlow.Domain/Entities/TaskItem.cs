@@ -9,7 +9,7 @@ public class TaskItem : BaseEntity
     public string Description { get; set; } = string.Empty;
     public TaskItemStatus Status { get; set; } = TaskItemStatus.Todo;
     public TaskPriority Priority { get; set; } = TaskPriority.Medium;
-    public DateTime DueDate { get; set; }
+    public DateTime? DueDate { get; set; }
 
     public int CreatedByUserId { get; set; }
     public int? AssignedToUserId { get; set; }
