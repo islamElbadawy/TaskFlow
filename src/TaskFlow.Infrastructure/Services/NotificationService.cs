@@ -8,10 +8,12 @@ namespace TaskFlow.Infrastructure.Services;
 public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IRealTimeNotifier _notifier;
 
-    public NotificationService(IUnitOfWork unitOfWork)
+    public NotificationService(IUnitOfWork unitOfWork, IRealTimeNotifier notifier)
     {
         _unitOfWork = unitOfWork;
+        _notifier = notifier;
     }
 
     public async Task CreateNotificationAsync(Guid userId, string message, NotificationType type, Guid? relatedTaskId = null)
@@ -28,13 +30,13 @@ public class NotificationService : INotificationService
         await _unitOfWork.Notifications.AddAsync(notification);
         await _unitOfWork.SaveChangesAsync();
 
-        // Fire-and-forget real-time push placeholder
-        await SendRealTimeNotificationAsync(userId, message, type);
+        var payload = new { message, type = type.ToString(), timestamp = DateTime.UtcNow };
+        await _notifier.SendAsync(userId, payload);
     }
 
     public Task SendRealTimeNotificationAsync(Guid userId, string message, NotificationType type)
     {
-        // Real-time hub will be wired in Feature 4
-        return Task.CompletedTask;
+        var payload = new { message, type = type.ToString(), timestamp = DateTime.UtcNow };
+        return _notifier.SendAsync(userId, payload);
     }
 }

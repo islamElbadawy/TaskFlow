@@ -5,6 +5,7 @@ using Microsoft.OpenApi;
 using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
 using TaskFlow.Infrastructure;
+using TaskFlow.API.Hubs;
 using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,6 +42,22 @@ builder.Services.AddAuthentication(x =>
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -57,7 +74,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add Application Layer (CQRS)
 builder.Services.AddApplication();
 
 // FluentValidation automatic model validation for controller input models
@@ -66,6 +82,11 @@ builder.Services.AddFluentValidationAutoValidation();
 
 // Add Infrastructure Layer (Database, Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Add SignalR
+builder.Services.AddSignalR();
+// Register real-time notifier implementation (uses NotificationHub)
+builder.Services.AddSingleton<TaskFlow.Application.Common.Interfaces.IRealTimeNotifier, TaskFlow.API.Services.RealTimeNotifier>();
 
 var app = builder.Build();
 
@@ -80,6 +101,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // Ensure database is created and seed data (development reset flow)
 using (var scope = app.Services.CreateScope())
