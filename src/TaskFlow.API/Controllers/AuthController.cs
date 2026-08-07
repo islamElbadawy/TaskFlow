@@ -5,6 +5,7 @@ using TaskFlow.Application.Commands.Users.auth;
 using TaskFlow.Application.Commands.Users.LoginCommand;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.DTOs.Auth;
+using TaskFlow.Application.Common.Results;
 
 namespace TaskFlow.API.Controllers;
 
@@ -46,9 +47,12 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         if (request == null)
-            return BadRequest("Request body cannot be empty.");
+            return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
 
         var userId = _currentUserService.UserId;
+        if (!userId.HasValue)
+            return Unauthorized();
+
         var command = new ChangePassowrdCommand
         {
             UserId = userId.Value,
@@ -58,7 +62,7 @@ public class AuthController : ControllerBase
 
         var result = await _commandDispatcher.DispatchAsync(command);
         if (!result.IsSuccess)
-            return BadRequest(new { error = result.ErrorMessage });
+            return BadRequest(result);
 
         return Ok(result);
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
+using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Queries.Users;
 
@@ -74,9 +75,12 @@ public class UsersController : ControllerBase
 
     [HttpPut("{id}/role")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest request)
+    public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateUserRoleCommand command)
     {
-        var command = new UpdateUserRoleCommand { UserId = id, NewRole = request.Role };
+        if (command == null)
+            return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
+
+        command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command);
 
         if (!result.IsSuccess)
@@ -84,8 +88,6 @@ public class UsersController : ControllerBase
 
         return Ok(result);
     }
-
-    public record UpdateRoleRequest(string Role);
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(int id)

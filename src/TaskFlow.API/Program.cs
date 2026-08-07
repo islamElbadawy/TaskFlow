@@ -5,6 +5,7 @@ using Microsoft.OpenApi;
 using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
 using TaskFlow.Infrastructure;
+using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,6 +59,10 @@ builder.Services.AddCors(options =>
 
 // Add Application Layer (CQRS)
 builder.Services.AddApplication();
+
+// FluentValidation automatic model validation for controller input models
+// Requires FluentValidation.AspNetCore package. Validators are registered in the Application layer.
+builder.Services.AddFluentValidationAutoValidation();
 
 // Add Infrastructure Layer (Database, Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);
