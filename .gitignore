@@ -1,0 +1,40 @@
+## Ignore Visual Studio temporary files, build results, and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+# Rider/IDE files
+.idea/
+.vscode/
+
+# ASP.NET temporary files
+**/ApiEndpoints.json
+**/staticwebassets.*
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# EF Migrations
+*.Snapshot
+
+# Logs
+# User-specific project files
+*.csproj.user
+
+# Generated files
+*.g.cs
+*.g.i.cs
+
+# DB
+*.mdf
+*.ldf
+
+# OS files
+.DS_Store
+Thumbs.db
