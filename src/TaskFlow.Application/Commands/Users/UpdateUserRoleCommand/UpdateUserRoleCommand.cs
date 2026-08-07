@@ -5,6 +5,6 @@ namespace TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
 
 public class UpdateUserRoleCommand : ICommand<Result<bool>>
 {
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
     public string NewRole { get; set; } = string.Empty;
 }

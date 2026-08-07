@@ -5,5 +5,5 @@ namespace TaskFlow.Application.Commands.Users.DeleteUserCommand;
 
 public class DeleteUserCommand : ICommand<Result<bool>>
 {
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
 }

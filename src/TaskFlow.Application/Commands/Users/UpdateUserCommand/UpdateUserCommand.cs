@@ -6,7 +6,7 @@ namespace TaskFlow.Application.Commands.Users.UpdateUserCommand;
 
 public class UpdateUserCommand : ICommand<Result<UserDto>>
 {
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

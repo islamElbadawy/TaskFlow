@@ -7,7 +7,7 @@ public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
 {
     public UpdateUserCommandValidator()
     {
-        RuleFor(x => x.UserId).GreaterThan(0).WithMessage("UserId is required");
+        RuleFor(x => x.UserId).NotEmpty().WithMessage("UserId is required");
         When(x => !string.IsNullOrEmpty(x.Email), () =>
         {
             RuleFor(x => x.Email).EmailAddress().WithMessage("Email is not valid");

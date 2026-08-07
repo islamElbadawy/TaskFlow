@@ -1,10 +1,10 @@
 ﻿namespace TaskFlow.Application.DTOs;
 
 public record NotificationDto(
-    int Id,
+    Guid Id,
     string Message,
     string Type,
     bool IsRead,
-    int? RelatedTaskId,
+    Guid? RelatedTaskId,
     DateTime CreatedAt
 );

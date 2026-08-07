@@ -81,4 +81,23 @@ app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 
+// Ensure database is created and seed data (development reset flow)
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetService<TaskFlow.Infrastructure.Data.Seeding.DataSeeder>();
+    if (seeder != null)
+    {
+        // Reset database
+        var db = scope.ServiceProvider.GetRequiredService<TaskFlow.Infrastructure.Data.Context.ApplicationDbContext>();
+        db.Database.EnsureDeleted();
+        // EnsureCreated is sufficient for development reset flow when migrations are not applied
+        db.Database.EnsureCreated();
+        await seeder.SeedAsync();
+        // Save seed details to repo file
+        var seedMd = System.IO.Path.Combine(System.AppContext.BaseDirectory, "SEEDS.md");
+        var seedContent = "# Seeded Data\n\nAdmin: admin@taskflow.dev (Password: P@ssw0rd) - Id: 11111111-1111-1111-1111-111111111111\nManager: manager@taskflow.dev (Password: P@ssw0rd) - Id: 22222222-2222-2222-2222-222222222222\nUser: user@taskflow.dev (Password: P@ssw0rd) - Id: 33333333-3333-3333-3333-333333333333\n\nTasks:\n- Setup project: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\n- Write docs: bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\n";
+        System.IO.File.WriteAllText(seedMd, seedContent);
+    }
+}
+
 app.Run();

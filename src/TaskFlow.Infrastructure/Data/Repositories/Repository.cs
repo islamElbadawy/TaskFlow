@@ -22,7 +22,7 @@ public class Repository<T> : IRepository<T> where T : class
         return await _dbSet.ToListAsync();
     }
 
-    public virtual async Task<T?> GetByIdAsync(int id)
+    public virtual async Task<T?> GetByIdAsync(Guid id)
     {
         return await _dbSet.FindAsync(id);
     }

@@ -28,6 +28,7 @@ public static class DependencyInjection
 
         // Services
         services.AddScoped<IPasswordService, PasswordService>();
+        services.AddScoped<Data.Seeding.DataSeeder>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 

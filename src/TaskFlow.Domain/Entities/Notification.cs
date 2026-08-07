@@ -8,8 +8,8 @@ public class Notification : BaseEntity
     public string Message { get; set; } = string.Empty;
     public NotificationType Type { get; set; }
     public bool IsRead { get; set; } = false;
-    public int? RelatedTaskId { get; set; }
-    public int UserId { get; set; }
+    public Guid? RelatedTaskId { get; set; }
+    public Guid UserId { get; set; }
 
     public User User { get; set; } = null!;
 }

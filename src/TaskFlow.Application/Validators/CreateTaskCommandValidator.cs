@@ -10,6 +10,6 @@ public class CreateTaskCommandValidator : AbstractValidator<CreateTaskCommand>
         RuleFor(x => x.Title).NotEmpty().WithMessage("Title is required");
         RuleFor(x => x.Description).NotNull();
         RuleFor(x => x.Priority).NotEmpty().WithMessage("Priority is required");
-        RuleFor(x => x.CreatedById).GreaterThan(0).WithMessage("CreatedById is required");
+        RuleFor(x => x.CreatedById).NotEmpty().WithMessage("CreatedById is required");
     }
 }

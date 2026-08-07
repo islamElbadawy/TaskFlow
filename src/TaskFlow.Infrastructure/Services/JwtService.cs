@@ -45,7 +45,7 @@ public class JwtService : IJwtService
         return tokenHandler.WriteToken(token);
     }
 
-    public int? ValidateToken(string token)
+    public Guid? ValidateToken(string token)
     {
         if (string.IsNullOrEmpty(token))
             return null;
@@ -68,8 +68,10 @@ public class JwtService : IJwtService
             }, out SecurityToken validatedToken);
 
             var jwtToken = (JwtSecurityToken)validatedToken;
-            var userId = int.Parse(jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-            return userId;
+            var userIdStr = jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+            if (Guid.TryParse(userIdStr, out var userId))
+                return userId;
+            return null;
         }
         catch
         {
