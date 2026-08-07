@@ -29,6 +29,7 @@ public static class DependencyInjection
         // Services
         services.AddScoped<IPasswordService, PasswordService>();
         services.AddScoped<Data.Seeding.DataSeeder>();
+        services.AddScoped<TaskFlow.Application.Common.Interfaces.INotificationService, NotificationService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
