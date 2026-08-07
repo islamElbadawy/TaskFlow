@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
+using TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Queries.Users;
 
@@ -70,6 +71,21 @@ public class UsersController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpPut("{id}/role")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest request)
+    {
+        var command = new UpdateUserRoleCommand { UserId = id, NewRole = request.Role };
+        var result = await _commandDispatcher.DispatchAsync(command);
+
+        if (!result.IsSuccess)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    public record UpdateRoleRequest(string Role);
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(int id)
