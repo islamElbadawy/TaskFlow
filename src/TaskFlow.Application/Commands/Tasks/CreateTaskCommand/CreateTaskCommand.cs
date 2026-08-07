@@ -10,6 +10,6 @@ public class CreateTaskCommand: ICommand<Result<TaskDto>>
     public string Description { get; set; } = string.Empty;
     public string Priority { get; set; } = "Medium";
     public DateTime? DueDate { get; set; }
-    public int CreatedById { get; set; }
-    public int? AssignedToId { get; set; }
+    public Guid CreatedById { get; set; }
+    public Guid? AssignedToId { get; set; }
 }

@@ -9,7 +9,7 @@ namespace TaskFlow.Application.Commands.Users.auth;
 
 public class ChangePassowrdCommand: ICommand<Result<bool>>
 {
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
     public string CurrentPassword { get; set; } = string.Empty;
     public string NewPassword { get; set; } = string.Empty;
 }

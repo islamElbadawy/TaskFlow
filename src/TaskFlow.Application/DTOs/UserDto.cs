@@ -1,7 +1,7 @@
 ﻿namespace TaskFlow.Application.DTOs;
 
 public record UserDto(
-    int Id,
+    Guid Id,
     string FirstName,
     string LastName,
     string FullName,

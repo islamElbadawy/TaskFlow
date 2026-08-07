@@ -1,15 +1,15 @@
 ﻿namespace TaskFlow.Application.DTOs;
 
 public record TaskDto(
-    int Id,
+    Guid Id,
     string Title,
     string Description,
     string Status,
     string Priority,
     DateTime? DueDate,
-    int CreatedById,
+    Guid CreatedById,
     string CreatedByName,
-    int? AssignedToId,
+    Guid? AssignedToId,
     string? AssignedToName,
     DateTime CreatedAt,
     DateTime? UpdatedAt,

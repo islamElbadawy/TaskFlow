@@ -11,8 +11,8 @@ public class TaskItem : BaseEntity
     public TaskPriority Priority { get; set; } = TaskPriority.Medium;
     public DateTime? DueDate { get; set; }
 
-    public int CreatedByUserId { get; set; }
-    public int? AssignedToUserId { get; set; }
+    public Guid CreatedByUserId { get; set; }
+    public Guid? AssignedToUserId { get; set; }
 
     // Navigation properties
     public User CreatedBy { get; set; } = null!;

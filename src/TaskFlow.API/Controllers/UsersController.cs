@@ -52,7 +52,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetUserById(int id)
+    public async Task<IActionResult> GetUserById(Guid id)
     {
         var query = new GetUserByIdQuery { UserId = id };
         var result = await _queryDispatcher.DispatchAsync(query);
@@ -62,7 +62,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{id}")]
-    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserCommand command)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserCommand command)
     {
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command);
@@ -75,7 +75,7 @@ public class UsersController : ControllerBase
 
     [HttpPut("{id}/role")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateUserRoleCommand command)
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateUserRoleCommand command)
     {
         if (command == null)
             return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
@@ -90,7 +90,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(Guid id)
     {
         var command = new DeleteUserCommand { UserId = id };
 

@@ -6,5 +6,5 @@ namespace TaskFlow.Application.Queries.Users;
 
 public class GetUserByIdQuery : IQuery<Result<UserDto>>
 {
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
 }
