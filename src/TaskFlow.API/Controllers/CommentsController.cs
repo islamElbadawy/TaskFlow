@@ -40,4 +40,21 @@ public class CommentsController : ControllerBase
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
+
+    /// <summary>Body <c>{ "content": "..." }</c>. Author only (403 otherwise); 404 unknown comment.</summary>
+    [HttpPut("comments/{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCommentCommand command)
+    {
+        command.CommentId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Author or Admin (403 otherwise); 404 unknown comment.</summary>
+    [HttpDelete("comments/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var result = await _commandDispatcher.DispatchAsync(new DeleteCommentCommand { CommentId = id }, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
 }
