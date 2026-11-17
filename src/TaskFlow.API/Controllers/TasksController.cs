@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Tasks;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Queries.Tasks;
 
 namespace TaskFlow.API.Controllers;
@@ -46,7 +47,10 @@ public class TasksController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand command)
     {
-        command.CreatedById = _currentUserService.UserId.Value;
+        if (_currentUserService.UserId is not { } userId)
+            return this.Problem(ErrorType.Unauthorized, "The access token does not identify a user.");
+
+        command.CreatedById = userId;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
