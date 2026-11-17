@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Users;
 using TaskFlow.Application.Commands.Users.auth;
 using TaskFlow.Application.Commands.Users.LoginCommand;
@@ -26,32 +27,23 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterUserCommand command)
     {
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Register([FromBody] LoginCommand command)
+    public async Task<IActionResult> Login([FromBody] LoginCommand command)
     {
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        if (request == null)
-            return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
-
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
-            return Unauthorized();
+            return this.Problem(ErrorType.Unauthorized, "The access token does not identify a user.");
 
         var command = new ChangePassowrdCommand
         {
@@ -61,9 +53,6 @@ public class AuthController : ControllerBase
         };
 
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 }

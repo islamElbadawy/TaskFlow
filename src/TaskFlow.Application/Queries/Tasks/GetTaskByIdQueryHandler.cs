@@ -37,7 +37,7 @@ public class GetTaskByIdQueryHandler : IQueryHandler<GetTaskByIdQuery, Result<Ta
             cancellationToken)).SingleOrDefault();
 
         return task is null
-            ? Result<TaskDto>.Failure("Task not found")
+            ? Result<TaskDto>.NotFound("Task not found")
             : Result<TaskDto>.Success(task);
     }
 }

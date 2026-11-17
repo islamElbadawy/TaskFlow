@@ -19,22 +19,23 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
     public async Task<Result<TaskDto>> HandleAsync(CreateTaskCommand command, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command.Title))
-            return Result<TaskDto>.Failure("Title is required");
+            return Result<TaskDto>.Validation("Title is required");
 
         var createdBy = await _unitOfWork.Users.GetByIdAsync(command.CreatedById, cancellationToken);
         if (createdBy == null)
-            return Result<TaskDto>.Failure("Creator user not found");
+            return Result<TaskDto>.NotFound("Creator user not found");
 
         User? assignedTo = null;
         if (command.AssignedToId.HasValue)
         {
             assignedTo = await _unitOfWork.Users.GetByIdAsync(command.AssignedToId.Value, cancellationToken);
             if (assignedTo == null)
-                return Result<TaskDto>.Failure("Assigned user not found");
+                return Result<TaskDto>.Validation("Assigned user not found");
         }
 
-        if (!Enum.TryParse<TaskPriority>(command.Priority, true, out var priority))
-            priority = TaskPriority.Medium;
+        // The validator rejects unknown names; never fall back to a default (e.g. "Urgent" used to become Medium).
+        if (!Enum.TryParse<TaskPriority>(command.Priority, true, out var priority) || !Enum.IsDefined(priority))
+            return Result<TaskDto>.Validation("Priority must be one of: Low, Medium, High");
 
         var taskItem = new TaskItem
         {

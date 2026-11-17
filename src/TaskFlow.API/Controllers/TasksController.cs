@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Tasks;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Queries.Tasks;
 
 namespace TaskFlow.API.Controllers;
@@ -32,33 +34,24 @@ public class TasksController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] GetTasksQuery query)
     {
         var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _queryDispatcher.DispatchAsync(new GetTaskByIdQuery { TaskId = id }, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return NotFound(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand command)
     {
-        command.CreatedById = _currentUserService.UserId.Value;
+        if (_currentUserService.UserId is not { } userId)
+            return this.Problem(ErrorType.Unauthorized, "The access token does not identify a user.");
+
+        command.CreatedById = userId;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        
-        if (!result.IsSuccess)
-            return BadRequest(result);
-        
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 }

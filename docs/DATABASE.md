@@ -181,14 +181,19 @@ $user    = Login "user@taskflow.dev"
 $admin.user          # id, name, role, createdAt
 ```
 
-Every response is wrapped in `Result<T>`: `{ "isSuccess": true, "data": { ... } }`, or on failure
-`{ "isSuccess": false, "errorMessage": "...", "errors": [ ... ] }` with HTTP 400.
+A successful response is `Result<T>`: `{ "isSuccess": true, "data": { ... } }` with HTTP 200. A failure is an RFC 9457
+ProblemDetails (`application/problem+json`) with the status code of the error, `title` = error type and
+`detail` = message, e.g. `{ "title": "NotFound", "status": 404, "detail": "Task not found", ... }`:
+400 `Validation` (validator failures also list the fields in `errors`), 401 `Unauthorized` (no/invalid token,
+failed login), 403 `Forbidden`, 404 `NotFound`, 409 `Conflict` (duplicate email, deleting a user who created
+tasks, demoting the last Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
+for these; the body is in `$_.ErrorDetails.Message`.
 
 ### 4.2 The inactive account can't log in
 
 ```powershell
 Login "inactive@taskflow.dev"
-# -> 400 Bad Request, errorMessage "Invalid email or password"
+# -> 401 Unauthorized, ProblemDetails detail "Invalid email or password"
 ```
 
 The message is the same as for a wrong password or an unknown email, so the API doesn't reveal that the
@@ -270,8 +275,9 @@ The list response looks like this:
 ### 4.6 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 53 requests with assertions: logins for every account, the inactive-login rejection,
-register and change-password, the 401/403/404 cases, role changes, task creation and the task
+checks above as 54 requests with assertions: logins for every account, the inactive-login rejection,
+register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
+`detail`), role changes, task creation and the task
 filters and paging.
 
 1. In Postman: **Import** → select the file.
@@ -284,7 +290,14 @@ You can run it repeatedly. Each run registers a throw-away user and deletes it a
 creates stay until you reset (section 6), or you can delete them in psql with
 `DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
 
-### 4.7 bash / curl equivalent
+### 4.7 Automated integration tests
+
+`dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
+throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
+memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
+development database on port 5433 is never touched; the container is removed afterwards.
+
+### 4.8 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \

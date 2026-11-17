@@ -48,7 +48,8 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
   - `ICommand<T>` / `ICommandHandler<T,R>` and `IQuery<T>` / `IQueryHandler<T,R>`
   - `ICommandDispatcher` / `IQueryDispatcher` resolve handlers from DI
 - **Repository + Unit of Work** — generic `IRepository<T>` with projected, no-tracking and paged reads; `ExecuteInTransactionAsync` for resilient transactions
-- **Result pattern** — handlers return `Result<T>` (`isSuccess`, `data`, `errorMessage`, `errors`) instead of throwing
+- **Result pattern** — handlers return `Result<T>` instead of throwing; a failure carries an error type (Validation, NotFound, Conflict, Unauthorized, Forbidden)
+- **ProblemDetails (RFC 9457)** — failures are returned as `application/problem+json` with the matching status code; unexpected exceptions are logged and returned as a 500 ProblemDetails
 - **FluentValidation** — request validation before handlers run (400 with field errors)
 - **Record DTOs** and `PaginatedList<T>` for paged responses
 
@@ -108,9 +109,10 @@ src/
   TaskFlow.Domain/          Common/BaseEntity, Entities, Enums, Interfaces
   TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (dispatchers, results, ports)
   TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/
-  TaskFlow.API/             Controllers/, Hubs/, Services/, Program.cs
+  TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs
 docs/                       DATABASE.md (setup, seed data, testing), BUGFIXES.md
 postman/                    API test collection
+tests/                      TaskFlow.IntegrationTests (xUnit, WebApplicationFactory, Testcontainers)
 docker-compose.yml          Local PostgreSQL 17
 ```
 
@@ -155,6 +157,25 @@ All endpoints except register/login need a `Bearer` token.
 | GET | `/api/tasks/{id}` | logged in | One task with names and comment count |
 | POST | `/api/tasks` | logged in | Create a task (creator = caller) |
 
+### Responses and errors
+
+Success: `200` with `{ "isSuccess": true, "data": { ... } }`. Failure: an RFC 9457 ProblemDetails
+(`application/problem+json`) whose `title` is the error type and `detail` the message:
+
+```json
+{ "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5", "title": "NotFound", "status": 404,
+  "detail": "Task not found", "traceId": "00-..." }
+```
+
+| Status | `title` | When |
+|---|---|---|
+| 400 | `Validation` (or "One or more validation errors occurred." with an `errors` object per field) | Invalid input: validator errors, unknown priority/status/role, unknown assignee, wrong current password |
+| 401 | `Unauthorized` | Missing/invalid token; failed login (same message for unknown email, wrong password and inactive account) |
+| 403 | `Forbidden` | Logged in but not allowed (e.g. a User editing another account, a non-Admin changing a role) |
+| 404 | `NotFound` | Unknown user or task |
+| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting the last Admin |
+| 500 | `Failure` | Unexpected error (logged; no internals in the response) |
+
 Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md).
 
 ---
@@ -166,7 +187,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Domain entities, enums, EF configurations, indexes | ✅ Done |
 | PostgreSQL + migrations + seed data (Docker Compose) | ✅ Done |
 | Repository / Unit of Work (cancellation, projections, paging, resilient transactions) | ✅ Done |
-| CQRS dispatchers, `Result<T>`, FluentValidation | ✅ Done (dispatcher uses reflection; error types planned) |
+| CQRS dispatchers, `Result<T>` with error types, FluentValidation | ✅ Done (dispatcher still uses reflection) |
 | Auth: register, login, change password, JWT, inactive-user check | ✅ Done |
 | Users: list, get, update, role change, delete with permission checks | ✅ Done |
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
@@ -177,8 +198,8 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Dashboard | ⏳ Planned |
 | User activation / deactivation endpoint | ⏳ Planned |
 | Email alerts, deadline reminders | ⏳ Planned (MailKit referenced, no implementation) |
-| Error types → proper 404/409 + ProblemDetails | ⏳ Planned |
-| Automated tests | ⏳ Planned (Postman collection covers the API manually) |
+| Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
+| Automated tests | 🟡 Integration test project (xUnit + Testcontainers PostgreSQL) with the first auth/users/tasks tests; grows with each feature |
 
 ---
 
@@ -205,6 +226,7 @@ Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev
 
 ## 🧪 Testing
 
+- **Integration tests:** `dotnet test` (Docker must be running). `tests/TaskFlow.IntegrationTests` starts the API in memory (`WebApplicationFactory`) against a throw-away PostgreSQL 17 container (Testcontainers) with migrations and seed data. It never touches the development database.
 - **Postman:** import [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json) and run the whole collection in order (Collection Runner). It logs in every seeded account and checks auth, permissions, users and tasks.
 - **Database:** `docker exec -it taskflow-postgres psql -U taskflow -d taskflow`, or pgAdmin on `localhost:5433` (see [docs/DATABASE.md](docs/DATABASE.md)).
 - **Reset:** `dotnet run -- --Seed:ResetDatabase=true` in `src/TaskFlow.API` drops, migrates and reseeds the database.

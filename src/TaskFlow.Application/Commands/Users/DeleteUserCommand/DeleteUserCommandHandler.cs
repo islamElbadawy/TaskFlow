@@ -18,14 +18,14 @@ public class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand, Resul
         var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
 
         if (user == null)
-            return Result<bool>.Failure("User not found");
+            return Result<bool>.NotFound("User not found");
 
         // Check if user has created tasks
         var hasCreatedTasks = await _unitOfWork.TasksItems
             .AnyAsync(t => t.CreatedByUserId == command.UserId, cancellationToken);
 
         if (hasCreatedTasks)
-            return Result<bool>.Failure("Cannot delete user with created tasks");
+            return Result<bool>.Conflict("Cannot delete user with created tasks");
 
 
         await _unitOfWork.Users.DeleteAsync(user, cancellationToken);

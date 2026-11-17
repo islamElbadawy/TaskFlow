@@ -20,7 +20,7 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
         var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
 
         if (user == null)
-            return Result<UserDto>.Failure("User not found");
+            return Result<UserDto>.NotFound("User not found");
 
         if (!string.IsNullOrWhiteSpace(command.Email))
         {
@@ -32,7 +32,7 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
                     u.Email == email && u.Id != command.UserId, cancellationToken);
 
             if (existingUser != null)
-                return Result<UserDto>.Failure("Email already exists");
+                return Result<UserDto>.Conflict("Email already exists");
 
             user.Email = email;
         }

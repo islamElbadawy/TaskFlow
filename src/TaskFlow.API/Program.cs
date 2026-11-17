@@ -6,6 +6,7 @@ using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
 using TaskFlow.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using TaskFlow.API.Common;
 using TaskFlow.API.Hubs;
 using FluentValidation.AspNetCore;
 
@@ -15,6 +16,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Errors: expected failures become ProblemDetails in the controllers (ResultExtensions), unexpected exceptions
+// are logged and returned as a 500 ProblemDetails, and empty 4xx responses (401/403/404) get a ProblemDetails body.
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddSwaggerGen();
 
 // Configure JWT Settings
@@ -98,6 +104,9 @@ builder.Services.AddSingleton<TaskFlow.Application.Common.Interfaces.IRealTimeNo
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -157,3 +166,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+// Makes the implicit Program class visible to WebApplicationFactory<Program> in the integration tests.
+public partial class Program { }
