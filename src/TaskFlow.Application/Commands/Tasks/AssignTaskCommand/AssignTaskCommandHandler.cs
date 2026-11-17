@@ -1,5 +1,6 @@
 using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Notifications;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Tasks;
@@ -12,11 +13,14 @@ public class AssignTaskCommandHandler : ICommandHandler<AssignTaskCommand, Resul
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
+    private readonly TaskNotifications _taskNotifications;
 
-    public AssignTaskCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
+    public AssignTaskCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService,
+        TaskNotifications taskNotifications)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
+        _taskNotifications = taskNotifications;
     }
 
     public async Task<Result<TaskDto>> HandleAsync(AssignTaskCommand command, CancellationToken cancellationToken)
@@ -38,8 +42,14 @@ public class AssignTaskCommandHandler : ICommandHandler<AssignTaskCommand, Resul
                 return Result<TaskDto>.Validation(assigneeError);
         }
 
+        var previousAssigneeId = task.AssignedToUserId;
         task.AssignTo(command.AssignedToId);
+
+        if (task.AssignedToUserId != previousAssigneeId)
+            await _taskNotifications.TaskAssignedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _taskNotifications.PublishAsync(cancellationToken);
 
         var taskDto = await _unitOfWork.TasksItems.GetDtoAsync(task.Id, cancellationToken);
         return Result<TaskDto>.Success(taskDto!);

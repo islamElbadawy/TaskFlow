@@ -1,4 +1,5 @@
 ﻿using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Notifications;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Domain.Entities;
@@ -10,10 +11,12 @@ namespace TaskFlow.Application.Commands.Tasks;
 public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Result<TaskDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly TaskNotifications _taskNotifications;
 
-    public CreateTaskCommandHandler(IUnitOfWork unitOfWork)
+    public CreateTaskCommandHandler(IUnitOfWork unitOfWork, TaskNotifications taskNotifications)
     {
         _unitOfWork = unitOfWork;
+        _taskNotifications = taskNotifications;
     }
 
     public async Task<Result<TaskDto>> HandleAsync(CreateTaskCommand command, CancellationToken cancellationToken)
@@ -52,7 +55,12 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
         };
 
         await _unitOfWork.TasksItems.AddAsync(taskItem, cancellationToken);
+        // Saved together with the task, pushed after the save.
+        await _taskNotifications.TaskAssignedAsync(command.CreatedById, taskItem.Id, taskItem.Title,
+            taskItem.AssignedToUserId, cancellationToken);
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _taskNotifications.PublishAsync(cancellationToken);
 
         var taskDto = new TaskDto(
             Id: taskItem.Id,

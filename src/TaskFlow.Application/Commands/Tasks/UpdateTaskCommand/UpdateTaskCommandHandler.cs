@@ -1,5 +1,6 @@
 ﻿using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Notifications;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Tasks;
@@ -13,13 +14,16 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
+    private readonly TaskNotifications _taskNotifications;
 
     public UpdateTaskCommandHandler(
         IUnitOfWork unitOfWork,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        TaskNotifications taskNotifications)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
+        _taskNotifications = taskNotifications;
     }
 
     public async Task<Result<TaskDto>> HandleAsync(UpdateTaskCommand command, CancellationToken cancellationToken)
@@ -52,12 +56,23 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
                 return Result<TaskDto>.Validation(assigneeError);
         }
 
+        var before = (task.Title, task.Description, task.Priority, task.DueDate, task.Status, task.AssignedToUserId);
+
         task.UpdateDetails(command.Title, command.Description, priority, command.DueDate);
         task.ChangeStatus(status);
         task.AssignTo(command.AssignedToId);
 
+        // Notifications go into the same SaveChanges as the change (order = priority, one per user).
+        if (task.AssignedToUserId != before.AssignedToUserId)
+            await _taskNotifications.TaskAssignedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, cancellationToken);
+        if (task.Status == TaskItemStatus.Done && before.Status != TaskItemStatus.Done)
+            await _taskNotifications.TaskCompletedAsync(actorId, task.Id, task.Title, task.CreatedByUserId, cancellationToken);
+        if ((task.Title, task.Description, task.Priority, task.DueDate, task.Status, task.AssignedToUserId) != before)
+            await _taskNotifications.TaskUpdatedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, cancellationToken);
+
         // The task is tracked, so SaveChanges writes only the columns that changed.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _taskNotifications.PublishAsync(cancellationToken);
 
         var taskDto = await _unitOfWork.TasksItems.GetDtoAsync(task.Id, cancellationToken);
         return Result<TaskDto>.Success(taskDto!);
