@@ -32,10 +32,15 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
         var email = command.Email.Trim().ToLowerInvariant();
         var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+        // Unknown email, wrong password and deactivated account all get the same message,
+        // so the response doesn't reveal which accounts exist or are disabled.
         if (user == null)
             return Result<LoginResponse>.Failure("Invalid email or password");
 
         if (!_passwordService.VerifyPassword(command.Password, user.PasswordHash))
+            return Result<LoginResponse>.Failure("Invalid email or password");
+
+        if (!user.IsActive)
             return Result<LoginResponse>.Failure("Invalid email or password");
 
         var (token, expiresAt) = _jwtService.GenerateToken(user);
