@@ -228,7 +228,23 @@ $task = @{ title = "Try the API"; description = "Created from PowerShell"; prior
 
 The creator is always the logged-in user (taken from the token); a `createdById` in the body is ignored.
 
-### 4.5 bash / curl equivalent
+### 4.5 Postman collection
+
+[`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
+checks above as 39 requests with assertions: logins for every account, the inactive-login rejection,
+register and change-password, the 401/403/404 cases, role changes and task creation.
+
+1. In Postman: **Import** → select the file.
+2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
+   off for this collection because Postman doesn't trust the ASP.NET Core development certificate.
+3. Right-click the collection → **Run collection** and run it **in order**. Later requests use the tokens
+   and ids saved by the login and register requests.
+
+You can run it repeatedly. Each run registers a throw-away user and deletes it at the end. The tasks it
+creates stay until you reset (section 6), or you can delete them in psql with
+`DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
+
+### 4.6 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
