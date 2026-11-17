@@ -1,3 +1,4 @@
+using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
@@ -22,7 +23,7 @@ public class ChangeTaskStatusCommandHandler : ICommandHandler<ChangeTaskStatusCo
     public async Task<Result<TaskDto>> HandleAsync(ChangeTaskStatusCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
-            return Result<TaskDto>.Unauthorized(TaskCommandGuards.NoActorMessage);
+            return Result<TaskDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         if (!Enum.TryParse<TaskItemStatus>(command.Status, true, out var status) || !Enum.IsDefined(status))
             return Result<TaskDto>.Validation("Status must be one of: Todo, InProgress, Done");

@@ -1,3 +1,4 @@
+using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Domain.Interfaces;
@@ -20,7 +21,7 @@ public class DeleteTaskCommandHandler : ICommandHandler<DeleteTaskCommand, Resul
     public async Task<Result<bool>> HandleAsync(DeleteTaskCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
-            return Result<bool>.Unauthorized(TaskCommandGuards.NoActorMessage);
+            return Result<bool>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         var task = await _unitOfWork.TasksItems.GetByIdAsync(command.TaskId, cancellationToken);
         if (task == null)

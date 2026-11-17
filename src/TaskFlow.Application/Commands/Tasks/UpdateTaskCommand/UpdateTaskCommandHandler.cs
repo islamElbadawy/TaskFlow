@@ -1,4 +1,5 @@
-﻿using TaskFlow.Application.Common.Interfaces;
+﻿using TaskFlow.Application.Common;
+using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Tasks;
@@ -24,7 +25,7 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
     public async Task<Result<TaskDto>> HandleAsync(UpdateTaskCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
-            return Result<TaskDto>.Unauthorized(TaskCommandGuards.NoActorMessage);
+            return Result<TaskDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         if (string.IsNullOrWhiteSpace(command.Title))
             return Result<TaskDto>.Validation("Title is required");
