@@ -84,4 +84,12 @@ public class TasksController : ControllerBase
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
+
+    /// <summary>Creator or Admin. Comments are deleted with the task; notifications stay, without the task link.</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var result = await _commandDispatcher.DispatchAsync(new DeleteTaskCommand { TaskId = id }, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
 }
