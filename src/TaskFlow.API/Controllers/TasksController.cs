@@ -74,4 +74,14 @@ public class TasksController : ControllerBase
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
+
+    /// <summary>Body <c>{ "assignedToId": "&lt;guid&gt;" }</c>, or <c>null</c> to unassign. Creator, Manager or Admin;
+    /// 400 when the user is unknown or inactive.</summary>
+    [HttpPatch("{id:guid}/assignee")]
+    public async Task<IActionResult> Assign(Guid id, [FromBody] AssignTaskCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
 }
