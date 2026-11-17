@@ -1,4 +1,5 @@
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Queries.Notifications;
 using TaskFlow.Domain.Entities;
 using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
@@ -30,13 +31,6 @@ public class NotificationService : INotificationService
         await _unitOfWork.Notifications.AddAsync(notification, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var payload = new { message, type = type.ToString(), timestamp = DateTime.UtcNow };
-        await _notifier.SendAsync(userId, payload);
-    }
-
-    public Task SendRealTimeNotificationAsync(Guid userId, string message, NotificationType type)
-    {
-        var payload = new { message, type = type.ToString(), timestamp = DateTime.UtcNow };
-        return _notifier.SendAsync(userId, payload);
+        await _notifier.SendAsync(userId, NotificationProjections.ToDtoFromEntity(notification));
     }
 }
