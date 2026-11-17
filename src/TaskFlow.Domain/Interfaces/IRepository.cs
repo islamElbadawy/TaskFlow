@@ -22,4 +22,17 @@ public interface IRepository<T> where T : class
         Expression<Func<T, bool>>? filter,
         Expression<Func<T, TResult>> selector,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One page of a read-only, projected query: filtered, sorted by <paramref name="orderBy"/>, then
+    /// <paramref name="skip"/>/<paramref name="take"/> applied in the database.
+    /// </summary>
+    Task<IReadOnlyList<TResult>> ListAsync<TResult, TKey>(
+        Expression<Func<T, bool>>? filter,
+        Expression<Func<T, TKey>> orderBy,
+        bool descending,
+        int skip,
+        int take,
+        Expression<Func<T, TResult>> selector,
+        CancellationToken cancellationToken = default);
 }
