@@ -43,6 +43,9 @@ project.fragment.lock.json
 *.mdf
 *.ldf
 
+# Local environment / secrets (docker compose reads .env)
+.env
+
 # OS files
 .DS_Store
 Thumbs.db

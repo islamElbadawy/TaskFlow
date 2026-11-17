@@ -21,14 +21,14 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
         if (string.IsNullOrWhiteSpace(command.Title))
             return Result<TaskDto>.Failure("Title is required");
 
-        var createdBy = await _unitOfWork.Users.GetByIdAsync(command.CreatedById);
+        var createdBy = await _unitOfWork.Users.GetByIdAsync(command.CreatedById, cancellationToken);
         if (createdBy == null)
             return Result<TaskDto>.Failure("Creator user not found");
 
         User? assignedTo = null;
         if (command.AssignedToId.HasValue)
         {
-            assignedTo = await _unitOfWork.Users.GetByIdAsync(command.AssignedToId.Value);
+            assignedTo = await _unitOfWork.Users.GetByIdAsync(command.AssignedToId.Value, cancellationToken);
             if (assignedTo == null)
                 return Result<TaskDto>.Failure("Assigned user not found");
         }
@@ -47,8 +47,8 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
             AssignedToUserId = command.AssignedToId
         };
 
-        await _unitOfWork.TasksItems.AddAsync(taskItem);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.TasksItems.AddAsync(taskItem, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var taskDto = new TaskDto(
             Id: taskItem.Id,

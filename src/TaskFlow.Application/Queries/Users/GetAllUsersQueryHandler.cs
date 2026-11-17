@@ -17,7 +17,11 @@ public class GetAllUsersQueryHandler : IQueryHandler<GetAllUsersQuery, Result<Li
     public async Task<Result<List<UserDto>>> HandleAsync(GetAllUsersQuery query,
         CancellationToken cancellationToken = default)
     {
-        var users = await _unitOfWork.Users.GetAllAsync();
+        // Projected, no-tracking read: only the columns the DTO needs (PasswordHash is never loaded).
+        var users = await _unitOfWork.Users.ListAsync(
+            filter: null,
+            selector: u => new { u.Id, u.FirstName, u.LastName, u.Email, u.Role, u.CreatedAt },
+            cancellationToken);
 
         var userDtos = users.Select(u => new UserDto(
             Id: u.Id,

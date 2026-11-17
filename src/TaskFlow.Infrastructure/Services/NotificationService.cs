@@ -16,7 +16,7 @@ public class NotificationService : INotificationService
         _notifier = notifier;
     }
 
-    public async Task CreateNotificationAsync(Guid userId, string message, NotificationType type, Guid? relatedTaskId = null)
+    public async Task CreateNotificationAsync(Guid userId, string message, NotificationType type, Guid? relatedTaskId = null, CancellationToken cancellationToken = default)
     {
         var notification = new Notification
         {
@@ -27,8 +27,8 @@ public class NotificationService : INotificationService
             RelatedTaskId = relatedTaskId
         };
 
-        await _unitOfWork.Notifications.AddAsync(notification);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Notifications.AddAsync(notification, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var payload = new { message, type = type.ToString(), timestamp = DateTime.UtcNow };
         await _notifier.SendAsync(userId, payload);

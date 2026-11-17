@@ -29,7 +29,7 @@ public class TasksController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand command)
     {
         command.CreatedById = _currentUserService.UserId.Value;
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         
         if (!result.IsSuccess)
             return BadRequest(result);

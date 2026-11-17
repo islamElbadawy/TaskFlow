@@ -55,7 +55,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 
 ### Data Access
 - **Entity Framework Core** (Code-First)
-- **SQL Server** as the database
+- **PostgreSQL 17** (Docker Compose, port 5433) via Npgsql, snake_case naming — see [docs/DATABASE.md](docs/DATABASE.md)
 - **Fluent API configurations** (`IEntityTypeConfiguration<T>`) for entity mapping
 - **EF Core Migrations** for schema versioning
 
@@ -156,16 +156,22 @@ Users            Tasks                 Comments        Notifications
 
 ## 🚀 How to Run (Quick Reference)
 
-```bash
-# 1. Apply database migration
-dotnet ef database update --project TaskFlow.Infrastructure --startup-project TaskFlow.API
+Full setup, the seeded accounts/tasks/comments/notifications and how to use them: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
-# 2. Run the API
-cd TaskFlow.API
-dotnet run
+```powershell
+# 1. Start PostgreSQL (first time: Copy-Item .env.example .env and set a password,
+#    then put the connection string and JWT secret in user-secrets, see docs/DATABASE.md)
+docker compose up -d
+
+# 2. Run the API (Development applies migrations and seeds the data on start)
+cd src\TaskFlow.API
+dotnet run --launch-profile https
 
 # 3. Open Swagger UI
-https://localhost:5001/swagger
+https://localhost:7103/swagger
 ```
+
+Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`,
+`user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected).
 
 Basic flow: **Register → Login (get JWT) → Authorize in Swagger → Create/Assign/Comment on Tasks → Check Dashboard**

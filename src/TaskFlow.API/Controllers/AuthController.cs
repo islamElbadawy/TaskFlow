@@ -25,7 +25,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterUserCommand command)
     {
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
             return BadRequest(result);
 
@@ -35,7 +35,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Register([FromBody] LoginCommand command)
     {
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
             return BadRequest(result);
 
@@ -60,7 +60,7 @@ public class AuthController : ControllerBase
             NewPassword = request.NewPassword
         };
 
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         if (!result.IsSuccess)
             return BadRequest(result);
 

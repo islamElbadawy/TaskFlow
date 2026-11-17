@@ -32,7 +32,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
         var email = command.Email.Trim().ToLowerInvariant();
 
         var existingUser = await _unitOfWork.Users
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (existingUser != null)
             return Result<UserDto>.Failure("Email already registered");
@@ -51,8 +51,8 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
             Role = UserRole.User
         };
 
-        await _unitOfWork.Users.AddAsync(user);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Users.AddAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var userDto = new UserDto(
             Id: user.Id,

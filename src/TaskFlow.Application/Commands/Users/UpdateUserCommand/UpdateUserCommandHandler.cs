@@ -15,9 +15,9 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<Result<UserDto>> HandleAsync(UpdateUserCommand command, CancellationToken ct)
+    public async Task<Result<UserDto>> HandleAsync(UpdateUserCommand command, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId);
+        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
 
         if (user == null)
             return Result<UserDto>.Failure("User not found");
@@ -29,7 +29,7 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
             // Another user (not this one) already owns the email?
             var existingUser =
                 await _unitOfWork.Users.FirstOrDefaultAsync(u =>
-                    u.Email == email && u.Id != command.UserId);
+                    u.Email == email && u.Id != command.UserId, cancellationToken);
 
             if (existingUser != null)
                 return Result<UserDto>.Failure("Email already exists");
@@ -40,8 +40,8 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
         user.FirstName = command.FirstName;
         user.LastName = command.LastName;
 
-        await _unitOfWork.Users.UpdateAsync(user);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var userDto = new UserDto(
             Id: user.Id,
