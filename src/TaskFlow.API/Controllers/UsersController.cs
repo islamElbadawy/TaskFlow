@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
+using TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
+using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Queries.Users;
 
@@ -50,7 +52,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetUserById(int id)
+    public async Task<IActionResult> GetUserById(Guid id)
     {
         var query = new GetUserByIdQuery { UserId = id };
         var result = await _queryDispatcher.DispatchAsync(query);
@@ -59,9 +61,30 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    // PUT is the correct verb for an update; POST is kept temporarily so existing clients don't break.
+    [HttpPut("{id}")]
     [HttpPost("{id}")]
-    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserCommand command)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserCommand command)
     {
+        if (!CanManageUser(id))
+            return Forbid();
+
+        command.UserId = id;
+        var result = await _commandDispatcher.DispatchAsync(command);
+
+        if (!result.IsSuccess)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpPut("{id}/role")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateUserRoleCommand command)
+    {
+        if (command == null)
+            return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
+
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command);
 
@@ -72,8 +95,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(Guid id)
     {
+        if (!CanManageUser(id))
+            return Forbid();
+
         var command = new DeleteUserCommand { UserId = id };
 
         var result = await _commandDispatcher.DispatchAsync(command);
@@ -83,4 +109,8 @@ public class UsersController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>A user may manage only their own account; admins may manage any account.</summary>
+    private bool CanManageUser(Guid targetUserId) =>
+        _currentUserService.UserId == targetUserId || User.IsInRole("Admin");
 }

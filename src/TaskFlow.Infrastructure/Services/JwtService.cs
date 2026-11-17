@@ -18,10 +18,10 @@ public class JwtService : IJwtService
         _jwtSettings = jwtSettings.Value;
     }
 
-    public string GenerateToken(User user)
+    public (string Token, DateTime ExpiresAt) GenerateToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
 
         var claims = new List<Claim>
         {
@@ -31,10 +31,12 @@ public class JwtService : IJwtService
             new(ClaimTypes.Role, user.Role.ToString()),
         };
 
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes);
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(_jwtSettings.ExpirationInMinutes),
+            Expires = expiresAt,
             Issuer = _jwtSettings.Issuer,
             Audience = _jwtSettings.Audience,
             SigningCredentials =
@@ -42,16 +44,16 @@ public class JwtService : IJwtService
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return (tokenHandler.WriteToken(token), expiresAt);
     }
 
-    public int? ValidateToken(string token)
+    public Guid? ValidateToken(string token)
     {
         if (string.IsNullOrEmpty(token))
             return null;
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
 
         try
         {
@@ -68,8 +70,10 @@ public class JwtService : IJwtService
             }, out SecurityToken validatedToken);
 
             var jwtToken = (JwtSecurityToken)validatedToken;
-            var userId = int.Parse(jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-            return userId;
+            var userIdStr = jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
+            if (Guid.TryParse(userIdStr, out var userId))
+                return userId;
+            return null;
         }
         catch
         {

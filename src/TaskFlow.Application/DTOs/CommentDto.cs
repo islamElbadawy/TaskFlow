@@ -1,10 +1,10 @@
 ﻿namespace TaskFlow.Application.DTOs;
 
 public record CommentDto(
-    int Id,
+    Guid Id,
     string Content,
-    int TaskId,
-    int UserId,
+    Guid TaskId,
+    Guid UserId,
     string UserName,
     DateTime CreatedAt
 );

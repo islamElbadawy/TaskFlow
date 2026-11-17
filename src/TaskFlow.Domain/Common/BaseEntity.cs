@@ -1,8 +1,10 @@
-﻿namespace TaskFlow.Domain.Common;
+﻿using System;
+
+namespace TaskFlow.Domain.Common;
 
 public abstract class BaseEntity
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

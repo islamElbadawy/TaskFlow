@@ -7,8 +7,8 @@ public class Comment : BaseEntity
     public string Content { get; set; } = string.Empty;
     
     // Foreign Keys
-    public int TaskId { get; set; }
-    public int UserId { get; set; }
+    public Guid TaskId { get; set; }
+    public Guid UserId { get; set; }
     
     // Navigation properties
     public TaskItem Task { get; set; } = null!;

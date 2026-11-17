@@ -13,13 +13,12 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public int? UserId
+    public Guid? UserId
     {
         get
         {
             var userIdClaims = _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (int.TryParse(userIdClaims, out var userId))
+            if (Guid.TryParse(userIdClaims, out var userId))
                 return userId;
 
             return null;
