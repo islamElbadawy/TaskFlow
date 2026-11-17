@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Application.Commands.Tasks;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Queries.Tasks;
 
 namespace TaskFlow.API.Controllers;
 
@@ -24,6 +25,30 @@ public class TasksController : ControllerBase
         _currentUserService = currentUserService;
     }
 
+
+    /// <summary>Lists tasks, newest first. Optional filters: status, priority, assignedToId, unassigned,
+    /// createdById, overdue; paging with page (from 1) and pageSize (1-100, default 20).</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] GetTasksQuery query)
+    {
+        var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
+
+        if (!result.IsSuccess)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var result = await _queryDispatcher.DispatchAsync(new GetTaskByIdQuery { TaskId = id }, HttpContext.RequestAborted);
+
+        if (!result.IsSuccess)
+            return NotFound(result);
+
+        return Ok(result);
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand command)
