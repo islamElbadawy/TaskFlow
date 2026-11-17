@@ -166,3 +166,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+// Makes the implicit Program class visible to WebApplicationFactory<Program> in the integration tests.
+public partial class Program { }
