@@ -71,7 +71,28 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.Data!.Token);
         return client;
     }
+
+    /// <summary>Registers a fresh account (role User) and logs it in, for tests that need users nobody else touches.</summary>
+    public async Task<TestUser> RegisterAsync(string firstName, string lastName = "Tester")
+    {
+        const string password = "Test-P@ssw0rd";
+        var email = $"test.{Guid.NewGuid():N}@taskflow.test";
+        var anonymous = CreateAnonymousClient();
+        var registered = await anonymous.PostAsJsonAsync("/api/auth/register", new { firstName, lastName, email, password });
+        registered.EnsureSuccessStatusCode();
+
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { email, password });
+        login.EnsureSuccessStatusCode();
+        var data = (await login.Content.ReadFromJsonAsync<ApiResult<LoginData>>())!.Data!;
+
+        var client = CreateAnonymousClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", data.Token);
+        return new TestUser(data.User.Id, $"{firstName} {lastName}", data.Token, client);
+    }
 }
+
+/// <summary>A registered test account: its id, full name, JWT and a client that sends the JWT.</summary>
+public sealed record TestUser(Guid Id, string FullName, string Token, HttpClient Client);
 
 [CollectionDefinition(Name)]
 public sealed class ApiCollection : ICollectionFixture<TaskFlowApiFactory>
