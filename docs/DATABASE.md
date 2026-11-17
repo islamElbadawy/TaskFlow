@@ -226,6 +226,8 @@ $task = @{ title = "Try the API"; description = "Created from PowerShell"; prior
 (Invoke-RestMethod "$api/api/tasks" -Method Post -Headers (Auth $manager) -ContentType "application/json" -Body $task).data
 ```
 
+The creator is always the logged-in user (taken from the token); a `createdById` in the body is ignored.
+
 ### 4.5 bash / curl equivalent
 
 ```bash
