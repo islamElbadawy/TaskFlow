@@ -161,6 +161,10 @@ All endpoints except register/login need a `Bearer` token.
 | PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` |
 | PATCH | `/api/tasks/{id}/assignee` | creator, Manager, Admin | Assign `{ "assignedToId": "<guid>" }` or unassign with `null` (active users only) |
 | DELETE | `/api/tasks/{id}` | creator, Admin | Delete a task (its comments too) |
+| GET | `/api/tasks/{taskId}/comments` | logged in | A task's comments, oldest first, with author names; paging `page`, `pageSize` |
+| POST | `/api/tasks/{taskId}/comments` | logged in | Add a comment `{ "content": "..." }` (1-1000 characters; author = caller) |
+| PUT | `/api/comments/{id}` | author | Edit a comment |
+| DELETE | `/api/comments/{id}` | author, Admin | Delete a comment |
 
 ### Responses and errors
 
@@ -197,7 +201,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Users: list, get, update, role change, delete with permission checks | ✅ Done |
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
 | Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
-| Comments API | ⏳ Planned |
+| Comments: list (paged), add, edit (author), delete (author or Admin) | ✅ Done |
 | Notifications API + automatic notifications on task events | ⏳ Planned (persistence service exists) |
 | SignalR push | 🟡 Hub and notifier exist; connection tracking to be replaced, not triggered yet |
 | Dashboard | ⏳ Planned |

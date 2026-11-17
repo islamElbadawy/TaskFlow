@@ -6,5 +6,6 @@ public record CommentDto(
     Guid TaskId,
     Guid UserId,
     string UserName,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
 );

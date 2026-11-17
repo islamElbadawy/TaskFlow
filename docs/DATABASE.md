@@ -119,6 +119,9 @@ What each role can do with the current endpoints:
 | Edit a task / (re)assign it | `PUT /api/tasks/{id}`, `PATCH /api/tasks/{id}/assignee` | User: own tasks only (creator); Manager: any task | any task |
 | Change a task's status | `PATCH /api/tasks/{id}/status` | User: tasks they created **or are assigned to**; Manager: any task | any task |
 | Delete a task | `DELETE /api/tasks/{id}` | own tasks only (creator); **a Manager can't delete others' tasks** | any task |
+| Read and add comments | `GET`/`POST /api/tasks/{taskId}/comments` | yes (any task) | yes |
+| Edit a comment | `PUT /api/comments/{id}` | own comments only | own comments only (an Admin can't edit others' words) |
+| Delete a comment | `DELETE /api/comments/{id}` | own comments only | any comment (moderation) |
 
 ### 3.2 Tasks
 
@@ -305,13 +308,36 @@ task, 403 not allowed (see the table in 3.1), 400 unknown status/priority or an 
 Keeping an assignee who has since been deactivated is allowed; only a *new* assignee must be active. Deleting a
 task deletes its comments; its notifications stay, with `related_task_id` cleared.
 
-### 4.7 Postman collection
+### 4.7 Comments
+
+```powershell
+$writeDocs = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+# The thread of a task, oldest first (paged: ?page=1&pageSize=20)
+(Invoke-RestMethod "$api/api/tasks/$writeDocs/comments" -Headers (Auth $user)).data.items |
+    Format-Table userName, content, createdAt
+
+# Add a comment (any logged-in user; the author is taken from the token)
+$c = (Invoke-RestMethod "$api/api/tasks/$writeDocs/comments" -Method Post -Headers (Auth $user) `
+        -ContentType "application/json" -Body '{ "content": "Examples are in." }').data
+
+# Edit (author only, even an Admin gets 403), then delete (author or Admin)
+Invoke-RestMethod "$api/api/comments/$($c.id)" -Method Put -Headers (Auth $user) -ContentType "application/json" `
+    -Body '{ "content": "Examples are in, please review." }'
+Invoke-RestMethod "$api/api/comments/$($c.id)" -Method Delete -Headers (Auth $admin)
+```
+
+Content must be 1-1000 characters (surrounding spaces are trimmed); an empty one is a 400 validation error.
+Unknown task or comment: 404. The seeded comments above make good test data: e.g. Sam trying to delete
+`c0000000-…-0003` (written by Regular User) gets 403. A task's `commentsCount` reflects the changes.
+
+### 4.8 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 82 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 104 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
-assign/unassign and delete with every permission case).
+assign/unassign and delete with every permission case) and comments (list, add, edit, delete).
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -320,18 +346,19 @@ assign/unassign and delete with every permission case).
    and ids saved by the login and register requests.
 
 You can run it repeatedly, and it leaves the database as it was: each run registers a throw-away user and deletes
-it, and folder 5 deletes every task the run created (titles start with `Postman:`). Its last request fails if a
+it, folder 5 deletes every task the run created (titles start with `Postman:`) and folder 6 every comment it
+added. The last request of folder 5 fails if a
 `Postman:` task is still there, e.g. after an interrupted run; delete those in psql with
 `DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
 
-### 4.8 Automated integration tests
+### 4.9 Automated integration tests
 
 `dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
 throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
 memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
 development database on port 5433 is never touched; the container is removed afterwards.
 
-### 4.9 bash / curl equivalent
+### 4.10 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \

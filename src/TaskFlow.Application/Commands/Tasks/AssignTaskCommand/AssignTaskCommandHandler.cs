@@ -1,3 +1,4 @@
+using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
@@ -21,7 +22,7 @@ public class AssignTaskCommandHandler : ICommandHandler<AssignTaskCommand, Resul
     public async Task<Result<TaskDto>> HandleAsync(AssignTaskCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
-            return Result<TaskDto>.Unauthorized(TaskCommandGuards.NoActorMessage);
+            return Result<TaskDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         var task = await _unitOfWork.TasksItems.GetByIdAsync(command.TaskId, cancellationToken);
         if (task == null)
