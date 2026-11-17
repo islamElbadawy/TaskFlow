@@ -8,8 +8,9 @@ public class UpdateTaskCommandValidator : AbstractValidator<UpdateTaskCommand>
 {
     public UpdateTaskCommandValidator()
     {
-        RuleFor(x => x.TaskId).NotEmpty().WithMessage("TaskId is required");
-        RuleFor(x => x.Title).NotEmpty().WithMessage("Title is required");
+        // TaskId comes from the route (set by the controller after model validation), so it is not validated here.
+        RuleFor(x => x.Title).NotEmpty().WithMessage("Title is required").MaximumLength(200);
+        RuleFor(x => x.Description).NotNull().MaximumLength(2000);
         RuleFor(x => x.Status).NotEmpty().WithMessage("Status is required")
             .IsEnumName(typeof(TaskItemStatus), caseSensitive: false).WithMessage("Status must be one of: Todo, InProgress, Done");
         RuleFor(x => x.Priority).NotEmpty().WithMessage("Priority is required")

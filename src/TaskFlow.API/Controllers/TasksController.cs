@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Tasks;
+using TaskFlow.Application.Commands.Tasks.UpdateTaskCommand;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Queries.Tasks;
@@ -51,6 +52,16 @@ public class TasksController : ControllerBase
             return this.Problem(ErrorType.Unauthorized, "The access token does not identify a user.");
 
         command.CreatedById = userId;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Replaces title, description, priority, due date, assignee and status. Creator, Manager or Admin;
+    /// 404 unknown task, 403 not allowed, 400 unknown or inactive assignee.</summary>
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskCommand command)
+    {
+        command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
