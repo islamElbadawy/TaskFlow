@@ -2214,6 +2214,678 @@
           ]
         }
       ]
+    },
+    {
+      "name": "4. Task reads",
+      "description": "GET /api/tasks (filters + paging) and GET /api/tasks/{id}. Any logged-in user can read every task. Assertions check that results match the filter, not exact totals, because runs of folder 3 add tasks.",
+      "item": [
+        {
+          "name": "List tasks (first page)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const page = pm.response.json().data;",
+                  "pm.test(\"Paging metadata\", () => { pm.expect(page.pageNumber).to.eql(1); pm.expect(page.pageSize).to.eql(20); pm.expect(page.totalCount >= 8).to.eql(true); });",
+                  "pm.test(\"Newest first\", () => { const d = page.items.map(t => t.createdAt); pm.expect(d).to.eql([...d].sort().reverse()); });",
+                  "pm.test(\"List items have no description\", () => pm.expect(page.items[0]).to.not.have.property(\"description\"));",
+                  "pm.test(\"Includes Write docs\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by status=InProgress",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?status=InProgress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?status=InProgress"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task is InProgress\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.status === \"InProgress\", t.title).to.eql(true));",
+                  "});",
+                  "pm.test(\"Includes Write docs\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter by priority (case-insensitive)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?priority=high",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?priority=high"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task is High priority\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.priority === \"High\", t.title).to.eql(true));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter overdue=true",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?overdue=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?overdue=true"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task is overdue and not Done\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.isOverdue === true && t.status !== \"Done\", t.title).to.eql(true));",
+                  "});",
+                  "pm.test(\"Includes Fix password reset email\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"a0000000-0000-0000-0000-000000000003\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filter unassigned=true",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?unassigned=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?unassigned=true"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task is unassigned\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.assignedToId === null, t.title).to.eql(true));",
+                  "});",
+                  "pm.test(\"Includes Set up CI pipeline\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"a0000000-0000-0000-0000-000000000005\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tasks assigned to Regular User",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?assignedToId=33333333-3333-3333-3333-333333333333",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?assignedToId=33333333-3333-3333-3333-333333333333"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task is assigned to Regular User\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.assignedToId === \"33333333-3333-3333-3333-333333333333\", t.title).to.eql(true));",
+                  "});",
+                  "pm.test(\"Includes Write docs\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"));",
+                  "pm.test(\"Includes Fix password reset email\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"a0000000-0000-0000-0000-000000000003\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tasks created by Admin, status Done",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?createdById=11111111-1111-1111-1111-111111111111&status=Done",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?createdById=11111111-1111-1111-1111-111111111111&status=Done"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Every task was created by Admin and is Done\", () => {",
+                  "    const items = pm.response.json().data.items;",
+                  "    pm.expect(items.length > 0).to.eql(true);",
+                  "    items.forEach(t => pm.expect(t.createdById === \"11111111-1111-1111-1111-111111111111\" && t.status === \"Done\", t.title).to.eql(true));",
+                  "});",
+                  "pm.test(\"Includes Setup project\", () => pm.expect(pm.response.json().data.items.map(t => t.id)).to.include(\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Second page of 3",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?page=2&pageSize=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?page=2&pageSize=3"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const page = pm.response.json().data;",
+                  "pm.test(\"Page 2 of size 3\", () => { pm.expect(page.pageNumber).to.eql(2); pm.expect(page.items.length).to.eql(3); });",
+                  "pm.test(\"Has previous and next pages\", () => { pm.expect(page.hasPreviousPage).to.eql(true); pm.expect(page.hasNextPage).to.eql(true); });",
+                  "pm.test(\"totalPages matches totalCount\", () => pm.expect(page.totalPages).to.eql(Math.ceil(page.totalCount / 3)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid filters -> 400 validation",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?status=Banana&pageSize=500",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?status=Banana&pageSize=500"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for Status\", () => pm.expect(pm.response.json().errors).to.have.property(\"Status\"));",
+                  "pm.test(\"PageSize out of range\", () => pm.expect(pm.response.json().errors).to.have.property(\"PageSize\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "assignedToId together with unassigned -> 400",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?assignedToId=33333333-3333-3333-3333-333333333333&unassigned=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?assignedToId=33333333-3333-3333-3333-333333333333&unassigned=true"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for Unassigned\", () => pm.expect(pm.response.json().errors).to.have.property(\"Unassigned\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List tasks without a token -> 401",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get a task by id (Write docs)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user2Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Full details\", () => { pm.expect(task.title).to.eql(\"Write docs\"); pm.expect(task.description).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Creator, assignee and comment count\", () => { pm.expect(task.createdByName).to.eql(\"Manager User\"); pm.expect(task.assignedToName).to.eql(\"Regular User\"); pm.expect(task.commentsCount).to.eql(2); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get the task created in folder 3",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Same task as created\", () => { pm.expect(task.id).to.eql(pm.collectionVariables.get(\"taskId\")); pm.expect(task.title).to.eql(\"Postman: review API collection\"); pm.expect(task.assignedToName).to.eql(\"Sam Taylor\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get an unknown task -> 404",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/00000000-0000-0000-0000-000000000099",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "00000000-0000-0000-0000-000000000099"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error message: Task not found\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.isSuccess).to.eql(false);",
+                  "    pm.expect(json.errorMessage).to.eql(\"Task not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
