@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
+using TaskFlow.Application.Commands.Comments;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Queries.Comments;
 
@@ -31,4 +32,12 @@ public class CommentsController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    /// <summary>Body <c>{ "content": "..." }</c> (1-1000 characters). Any logged-in user; the author is the caller.</summary>
+    [HttpPost("tasks/{taskId:guid}/comments")]
+    public async Task<IActionResult> Add(Guid taskId, [FromBody] AddCommentCommand command)
+    {
+        command.TaskId = taskId;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
 }
