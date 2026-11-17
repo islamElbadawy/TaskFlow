@@ -65,4 +65,13 @@ public class TasksController : ControllerBase
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
+
+    /// <summary>Body <c>{ "status": "InProgress" }</c>. Creator, assignee, Manager or Admin.</summary>
+    [HttpPatch("{id:guid}/status")]
+    public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeTaskStatusCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
 }
