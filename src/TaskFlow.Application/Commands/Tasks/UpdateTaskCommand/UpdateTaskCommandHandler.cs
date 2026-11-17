@@ -20,7 +20,7 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
     }
     public async Task<Result<TaskDto>> HandleAsync(UpdateTaskCommand command, CancellationToken cancellationToken)
     {
-        var task = await _unitOfWork.TasksItems.FirstOrDefaultAsync(t => t.Id == command.TaskId);
+        var task = await _unitOfWork.TasksItems.FirstOrDefaultAsync(t => t.Id == command.TaskId, cancellationToken);
         
         if (task == null)
             return Result<TaskDto>.Failure("Task not found");
@@ -41,17 +41,20 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         if (Enum.TryParse<TaskPriority>(command.Priority, true, out var priority))
             task.Priority = priority;
 
-        await _unitOfWork.TasksItems.UpdateAsync(task);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.TasksItems.UpdateAsync(task, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
         
-        var commentsCount = await _unitOfWork.Comments.CountAsync(c => c.TaskId == task.Id);
-
-        // The generic repository doesn't Include navigations, so CreatedBy/AssignedTo may be null here.
-        // Load the related users explicitly instead of dereferencing unloaded navigation properties.
-        var createdBy = task.CreatedBy ?? await _unitOfWork.Users.GetByIdAsync(task.CreatedByUserId);
-        var assignedTo = task.AssignedToUserId is { } assignedId
-            ? task.AssignedTo ?? await _unitOfWork.Users.GetByIdAsync(assignedId)
-            : null;
+        // The generic repository doesn't Include navigations, so read the related names and the comment
+        // count with one projected query instead of dereferencing unloaded navigation properties.
+        var details = (await _unitOfWork.TasksItems.ListAsync(
+            t => t.Id == task.Id,
+            t => new
+            {
+                CreatedByName = t.CreatedBy.FirstName + " " + t.CreatedBy.LastName,
+                AssignedToName = t.AssignedTo != null ? t.AssignedTo.FirstName + " " + t.AssignedTo.LastName : null,
+                CommentsCount = t.Comments.Count
+            },
+            cancellationToken)).Single();
 
         var taskDto = new TaskDto(
             Id: task.Id,
@@ -61,12 +64,12 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
             Priority: task.Priority.ToString(),
             DueDate: task.DueDate,
             CreatedById: task.CreatedByUserId,
-            CreatedByName: createdBy != null ? $"{createdBy.FirstName} {createdBy.LastName}" : string.Empty,
+            CreatedByName: details.CreatedByName,
             AssignedToId: task.AssignedToUserId,
-            AssignedToName: assignedTo != null ? $"{assignedTo.FirstName} {assignedTo.LastName}" : null,
+            AssignedToName: details.AssignedToName,
             CreatedAt: task.CreatedAt,
             UpdatedAt: task.UpdatedAt,
-            CommentsCount: commentsCount
+            CommentsCount: details.CommentsCount
         );
 
         return Result<TaskDto>.Success(taskDto);

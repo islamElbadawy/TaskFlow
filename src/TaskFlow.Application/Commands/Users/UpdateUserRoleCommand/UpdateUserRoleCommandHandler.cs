@@ -22,22 +22,22 @@ public class UpdateUserRoleCommandHandler : ICommandHandler<UpdateUserRoleComman
         if (!Enum.TryParse<UserRole>(command.NewRole, true, out var newRole))
             return Result<bool>.Failure("Invalid role");
 
-        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId);
+        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
         if (user == null)
             return Result<bool>.Failure("User not found");
 
         // Prevent demoting the last remaining Admin
         if (user.Role == UserRole.Admin && newRole != UserRole.Admin)
         {
-            var adminCount = await _unitOfWork.Users.CountAsync(u => u.Role == UserRole.Admin);
+            var adminCount = await _unitOfWork.Users.CountAsync(u => u.Role == UserRole.Admin, cancellationToken);
             if (adminCount <= 1)
                 return Result<bool>.Failure("Cannot demote the last Admin");
         }
 
         user.Role = newRole;
 
-        await _unitOfWork.Users.UpdateAsync(user);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<bool>.Success(true);
     }

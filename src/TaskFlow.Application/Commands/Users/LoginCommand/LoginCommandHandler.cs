@@ -30,7 +30,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
             return Result<LoginResponse>.Failure("Password is required");
 
         var email = command.Email.Trim().ToLowerInvariant();
-        var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (user == null)
             return Result<LoginResponse>.Failure("Invalid email or password");

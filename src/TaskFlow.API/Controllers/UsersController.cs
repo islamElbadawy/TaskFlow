@@ -29,7 +29,7 @@ public class UsersController : ControllerBase
     [HttpGet()]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _queryDispatcher.DispatchAsync(new GetAllUsersQuery());
+        var result = await _queryDispatcher.DispatchAsync(new GetAllUsersQuery(), HttpContext.RequestAborted);
         if (!result.IsSuccess)
             return BadRequest(result);
         return Ok(result);
@@ -44,7 +44,7 @@ public class UsersController : ControllerBase
             return Unauthorized();
 
         var query = new GetUserByIdQuery { UserId = userId.Value };
-        var result = await _queryDispatcher.DispatchAsync(query);
+        var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
 
         if (!result.IsSuccess)
             return NotFound(result);
@@ -55,7 +55,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetUserById(Guid id)
     {
         var query = new GetUserByIdQuery { UserId = id };
-        var result = await _queryDispatcher.DispatchAsync(query);
+        var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
         if (!result.IsSuccess)
             return NotFound(result);
         return Ok(result);
@@ -70,7 +70,7 @@ public class UsersController : ControllerBase
             return Forbid();
 
         command.UserId = id;
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
 
         if (!result.IsSuccess)
             return BadRequest(result);
@@ -86,7 +86,7 @@ public class UsersController : ControllerBase
             return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
 
         command.UserId = id;
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
 
         if (!result.IsSuccess)
             return BadRequest(result);
@@ -102,7 +102,7 @@ public class UsersController : ControllerBase
 
         var command = new DeleteUserCommand { UserId = id };
 
-        var result = await _commandDispatcher.DispatchAsync(command);
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
 
         if (!result.IsSuccess)
             return BadRequest(result);

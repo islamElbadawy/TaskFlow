@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskFlow.Domain.Common;
 using TaskFlow.Domain.Entities;
-using TaskFlow.Infrastructure.Data.Configurations;
 
 namespace TaskFlow.Infrastructure.Data.Context;
 
@@ -19,34 +19,59 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new UserConfiguration());
-        modelBuilder.ApplyConfiguration(new TaskItemConfiguration());
-        modelBuilder.ApplyConfiguration(new CommentConfiguration());
-        modelBuilder.ApplyConfiguration(new NotificationConfiguration());
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = new CancellationToken())
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        // Npgsql maps DateTime to "timestamp with time zone", which only accepts Kind=Utc values.
+        // Normalize on the way in (Unspecified is treated as UTC) and mark values read back as UTC.
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateTimestamps();
         return base.SaveChangesAsync(cancellationToken);
     }
 
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        UpdateTimestamps();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
     private void UpdateTimestamps()
     {
-        var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is BaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
-        foreach (var entry in entries)
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
-            var entity = (BaseEntity)entry.Entity;
-
             if (entry.State == EntityState.Added)
             {
-                entity.CreatedAt = DateTime.UtcNow;
+                // Keep an explicit value (e.g. seed data with realistic dates); otherwise stamp it now.
+                if (entry.Entity.CreatedAt == default)
+                    entry.Entity.CreatedAt = now;
             }
-            else
+            else if (entry.State == EntityState.Modified)
             {
-                entity.UpdatedAt = DateTime.UtcNow;
+                entry.Entity.UpdatedAt = now;
             }
         }
     }
+
+    private static DateTime ToUtc(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    };
+
+    private sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
+        v => ToUtc(v),
+        v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private sealed class NullableUtcDateTimeConverter() : ValueConverter<DateTime?, DateTime?>(
+        v => v.HasValue ? ToUtc(v.Value) : v,
+        v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
 }

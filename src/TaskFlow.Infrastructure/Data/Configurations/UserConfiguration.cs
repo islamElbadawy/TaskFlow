@@ -28,7 +28,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
 
         builder.Property(u => u.Role)
-            .HasConversion<string>();
+            .HasConversion<string>()
+            .HasMaxLength(20);
 
         builder.HasMany(u => u.CreatedTasks)
             .WithOne(t => t.CreatedBy)

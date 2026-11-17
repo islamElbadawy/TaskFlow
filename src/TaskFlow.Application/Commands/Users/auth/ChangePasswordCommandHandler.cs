@@ -19,7 +19,7 @@ public class ChangePasswordCommandHandler : ICommandHandler<ChangePassowrdComman
     }
     public async Task<Result<bool>> HandleAsync(ChangePassowrdCommand command, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId);
+        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
         if(user == null)
             return Result<bool>.Failure("User not found.");
         
@@ -32,8 +32,8 @@ public class ChangePasswordCommandHandler : ICommandHandler<ChangePassowrdComman
 
         user.PasswordHash = _passwordService.HashPassword(command.NewPassword);
 
-        await _unitOfWork.Users.UpdateAsync(user);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
 
         return Result<bool>.Success(true);

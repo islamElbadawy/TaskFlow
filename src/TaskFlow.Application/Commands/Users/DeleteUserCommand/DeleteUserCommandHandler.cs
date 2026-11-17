@@ -15,21 +15,21 @@ public class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand, Resul
 
     public async Task<Result<bool>> HandleAsync(DeleteUserCommand command, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId);
+        var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
 
         if (user == null)
             return Result<bool>.Failure("User not found");
 
         // Check if user has created tasks
         var hasCreatedTasks = await _unitOfWork.TasksItems
-            .CountAsync(t => t.CreatedByUserId == command.UserId) > 0;
+            .AnyAsync(t => t.CreatedByUserId == command.UserId, cancellationToken);
 
         if (hasCreatedTasks)
             return Result<bool>.Failure("Cannot delete user with created tasks");
 
 
-        await _unitOfWork.Users.DeleteAsync(user);
-        await _unitOfWork.SaveChangesAsync();
+        await _unitOfWork.Users.DeleteAsync(user, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<bool>.Success(true);
     }
