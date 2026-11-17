@@ -28,18 +28,21 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         if (string.IsNullOrWhiteSpace(command.Title))
             return Result<TaskDto>.Validation("Title is required");
 
+        // The validator rejects unknown names; never keep the old value silently for an invalid one.
+        if (!Enum.TryParse<TaskItemStatus>(command.Status, true, out var status) || !Enum.IsDefined(status))
+            return Result<TaskDto>.Validation("Status must be one of: Todo, InProgress, Done");
+
+        if (!Enum.TryParse<TaskPriority>(command.Priority, true, out var priority) || !Enum.IsDefined(priority))
+            return Result<TaskDto>.Validation("Priority must be one of: Low, Medium, High");
+
         var previousAssignedToId = task.AssignedToUserId;
         
         task.Title = command.Title;
         task.Description = command.Description;
         task.DueDate = command.DueDate;
         task.AssignedToUserId = command.AssignedToId;
-        
-        if (Enum.TryParse<TaskItemStatus>(command.Status, true, out var status))
-            task.Status = status;
-
-        if (Enum.TryParse<TaskPriority>(command.Priority, true, out var priority))
-            task.Priority = priority;
+        task.Status = status;
+        task.Priority = priority;
 
         await _unitOfWork.TasksItems.UpdateAsync(task, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
