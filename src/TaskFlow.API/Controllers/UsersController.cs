@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
@@ -30,9 +31,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _queryDispatcher.DispatchAsync(new GetAllUsersQuery(), HttpContext.RequestAborted);
-        if (!result.IsSuccess)
-            return BadRequest(result);
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
 
@@ -41,14 +40,11 @@ public class UsersController : ControllerBase
     {
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
-            return Unauthorized();
+            return this.Problem(ErrorType.Unauthorized, "The access token does not identify a user.");
 
         var query = new GetUserByIdQuery { UserId = userId.Value };
         var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return NotFound(result);
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("{id}")]
@@ -56,9 +52,7 @@ public class UsersController : ControllerBase
     {
         var query = new GetUserByIdQuery { UserId = id };
         var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
-        if (!result.IsSuccess)
-            return NotFound(result);
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     // PUT is the correct verb for an update; POST is kept temporarily so existing clients don't break.
@@ -67,47 +61,32 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserCommand command)
     {
         if (!CanManageUser(id))
-            return Forbid();
+            return this.Problem(ErrorType.Forbidden, "You can only update your own account.");
 
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpPut("{id}/role")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateUserRoleCommand command)
     {
-        if (command == null)
-            return BadRequest(Result<bool>.Failure("Request body cannot be empty"));
-
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
         if (!CanManageUser(id))
-            return Forbid();
+            return this.Problem(ErrorType.Forbidden, "You can only delete your own account.");
 
         var command = new DeleteUserCommand { UserId = id };
 
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-
-        if (!result.IsSuccess)
-            return BadRequest(result);
-
-        return Ok(result);
+        return this.ToActionResult(result);
     }
 
     /// <summary>A user may manage only their own account; admins may manage any account.</summary>
