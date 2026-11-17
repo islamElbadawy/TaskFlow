@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TaskFlow API",
-    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment, so the database is left as it was.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
+    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "protocolProfileBehavior": {
@@ -78,6 +78,34 @@
     },
     {
       "key": "user2CommentId",
+      "value": ""
+    },
+    {
+      "key": "notifyEmail",
+      "value": ""
+    },
+    {
+      "key": "notifyUserId",
+      "value": ""
+    },
+    {
+      "key": "notifyToken",
+      "value": ""
+    },
+    {
+      "key": "notifyTaskId",
+      "value": ""
+    },
+    {
+      "key": "managerUnreadBefore",
+      "value": ""
+    },
+    {
+      "key": "firstNotificationId",
+      "value": ""
+    },
+    {
+      "key": "secondNotificationId",
       "value": ""
     }
   ],
@@ -5855,6 +5883,1408 @@
                   "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
                   "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
                   "pm.test(\"Write docs has 2 comments\", () => pm.expect(pm.response.json().data.commentsCount).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Notifications",
+      "description": "Automatic notifications and GET /api/notifications, /unread-count, PATCH /{id}/read, POST /read-all. Uses a throw-away user who creates a task that the Manager then assigns, comments, edits and completes, so every notification lands with that user (the actor is never notified, one notification per user per change). At the end the task and the user are deleted, which removes their notifications too. Live delivery over SignalR (/hubs/notifications) is covered by the integration tests; see docs/REALTIME.md.",
+      "item": [
+        {
+          "name": "Register a throw-away user",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Notify\",\n  \"lastName\": \"Tester\",\n  \"email\": \"{{notifyEmail}}\",\n  \"password\": \"N0tify-P@ss\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"notifyEmail\", \"postman.notify.\" + Date.now() + \"@taskflow.dev\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"notifyUserId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as the throw-away user",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{notifyEmail}}\",\n  \"password\": \"N0tify-P@ss\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"notifyToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A new user has no notifications",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Empty\", () => { pm.expect(pm.response.json().data.totalCount).to.eql(0); pm.expect(pm.response.json().data.items.length).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager's unread count before (saved)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"managerUnreadBefore\", pm.response.json().data);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Throw-away user creates an unassigned task",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: notification task\",\n  \"description\": \"\",\n  \"priority\": \"Medium\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"notifyTaskId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager assigns it to the throw-away user -> TaskAssigned",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}/assignee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}",
+                "assignee"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedToId\": \"{{notifyUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager comments -> CommentAdded (creator and assignee are the same user: one notification)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}",
+                "comments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Postman: please pick this up.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Throw-away user comments on their own task -> nobody is notified",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}/comments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}",
+                "comments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Postman: on it.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager edits the task -> TaskUpdated",
+          "request": {
+            "method": "PUT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: notification task (edited)\",\n  \"description\": \"\",\n  \"priority\": \"High\",\n  \"status\": \"InProgress\",\n  \"dueDate\": null,\n  \"assignedToId\": \"{{notifyUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager marks it Done -> TaskCompleted (not also TaskUpdated)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "The Manager (actor) got nothing new",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Unchanged\", () => pm.expect(pm.response.json().data).to.eql(Number(pm.collectionVariables.get(\"managerUnreadBefore\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Throw-away user has 4 unread",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Unread count is 4\", () => pm.expect(pm.response.json().data).to.eql(4));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List: newest first, one per change",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"Types newest first\", () => pm.expect(items.map(n => n.type)).to.eql([\"TaskCompleted\", \"TaskUpdated\", \"CommentAdded\", \"TaskAssigned\"]));",
+                  "pm.test(\"All about the task, unread\", () => items.forEach(n => { pm.expect(n.relatedTaskId).to.eql(pm.collectionVariables.get(\"notifyTaskId\")); pm.expect(n.isRead).to.eql(false); }));",
+                  "pm.test(\"Messages name the Manager\", () => { pm.expect(items[0].message).to.eql('Manager User marked \"Postman: notification task (edited)\" as done'); pm.expect(items[3].message).to.eql('Manager User assigned you \"Postman: notification task\"'); });",
+                  "pm.collectionVariables.set(\"firstNotificationId\", items[0].id);",
+                  "pm.collectionVariables.set(\"secondNotificationId\", items[1].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Page 2 of size 2",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=2&pageSize=2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?page=2&pageSize=2"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const page = pm.response.json().data;",
+                  "pm.test(\"4 in 2 pages\", () => { pm.expect(page.totalCount).to.eql(4); pm.expect(page.totalPages).to.eql(2); pm.expect(page.items.map(n => n.type)).to.eql([\"CommentAdded\", \"TaskAssigned\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark the newest as read",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{firstNotificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{firstNotificationId}}",
+                "read"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"isRead\", () => pm.expect(pm.response.json().data.isRead).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark it again (idempotent) -> 200",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{firstNotificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{firstNotificationId}}",
+                "read"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Still read\", () => pm.expect(pm.response.json().data.isRead).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "unread=true leaves it out",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?unread=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?unread=true"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"3 unread, not the read one\", () => { pm.expect(items.length).to.eql(3); pm.expect(items.map(n => n.id)).to.not.include(pm.collectionVariables.get(\"firstNotificationId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "unread=false returns only the read one",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?unread=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?unread=false"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Just the read one\", () => pm.expect(pm.response.json().data.items.map(n => n.id)).to.eql([pm.collectionVariables.get(\"firstNotificationId\")]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sam marks someone else's notification -> 404",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user2Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{secondNotificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{secondNotificationId}}",
+                "read"
+              ]
+            },
+            "description": "Another user's notification is reported as not found, so ids can't be probed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"ProblemDetails body\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.json().status).to.eql(404);",
+                  "});",
+                  "pm.test(\"Problem: NotFound - Notification not found\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.title).to.eql(\"NotFound\");",
+                  "    pm.expect(json.detail).to.eql(\"Notification not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark an unknown notification -> 404",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/00000000-0000-0000-0000-000000000099/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "00000000-0000-0000-0000-000000000099",
+                "read"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"ProblemDetails body\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.json().status).to.eql(404);",
+                  "});",
+                  "pm.test(\"Problem: NotFound - Notification not found\", () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.title).to.eql(\"NotFound\");",
+                  "    pm.expect(json.detail).to.eql(\"Notification not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read all -> 3 marked",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"3 changed\", () => pm.expect(pm.response.json().data).to.eql(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unread count is now 0",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Unread count is 0\", () => pm.expect(pm.response.json().data).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read all again -> 0 marked",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Nothing left\", () => pm.expect(pm.response.json().data).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bad paging -> 400 validation",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?pageSize=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?pageSize=0"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for PageSize\", () => pm.expect(pm.response.json().errors).to.have.property(\"PageSize\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications without a token -> 401",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"ProblemDetails body\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.json().status).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: the throw-away user deletes their task",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{notifyTaskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{notifyTaskId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications outlive the task, without the link",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{notifyToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "pm.test(\"4 kept, relatedTaskId cleared\", () => { pm.expect(items.length).to.eql(4); items.forEach(n => pm.expect(n.relatedTaskId).to.eql(null)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Admin deletes the throw-away user (and their notifications)",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{notifyUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{notifyUserId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
                 ]
               }
             }
