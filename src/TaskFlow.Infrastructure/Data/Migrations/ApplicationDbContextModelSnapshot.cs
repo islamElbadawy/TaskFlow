@@ -105,6 +105,9 @@ namespace TaskFlow.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_notifications");
 
+                    b.HasIndex("RelatedTaskId")
+                        .HasDatabaseName("ix_notifications_related_task_id");
+
                     b.HasIndex("UserId", "IsRead")
                         .HasDatabaseName("ix_notifications_user_id_is_read");
 
@@ -255,6 +258,12 @@ namespace TaskFlow.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("TaskFlow.Domain.Entities.Notification", b =>
                 {
+                    b.HasOne("TaskFlow.Domain.Entities.TaskItem", null)
+                        .WithMany()
+                        .HasForeignKey("RelatedTaskId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_notifications_tasks_related_task_id");
+
                     b.HasOne("TaskFlow.Domain.Entities.User", "User")
                         .WithMany("Notifications")
                         .HasForeignKey("UserId")

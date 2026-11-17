@@ -25,5 +25,11 @@ public class NotificationConfiguration: IEntityTypeConfiguration<Notification>
             .WithMany(u => u.Notifications)
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Deleting a task keeps its notifications (history) but clears the link to it.
+        builder.HasOne<TaskItem>()
+            .WithMany()
+            .HasForeignKey(n => n.RelatedTaskId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
