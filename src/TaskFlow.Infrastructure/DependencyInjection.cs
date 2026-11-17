@@ -15,10 +15,10 @@ public static class DependencyInjection
         this IServiceCollection services, IConfiguration configuration
     )
     {
-        // Database 
-        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(
-            configuration.GetConnectionString("DefaultConnection"),
-            b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        // Database (PostgreSQL). The connection string's password comes from user-secrets / environment.
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+        services.AddDbContext<ApplicationDbContext>(options => ApplicationDbContext.Configure(options, connectionString));
 
 
         // Repository pattern

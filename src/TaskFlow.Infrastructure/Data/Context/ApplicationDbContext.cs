@@ -11,6 +11,17 @@ public class ApplicationDbContext : DbContext
     {
     }
 
+    /// <summary>
+    /// Provider setup shared by the runtime registration and the design-time factory, so both build the same model.
+    /// </summary>
+    public static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options, string connectionString) =>
+        options
+            .UseNpgsql(connectionString, npgsql => npgsql
+                .MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)
+                .MigrationsHistoryTable("__ef_migrations_history")
+                .EnableRetryOnFailure())
+            .UseSnakeCaseNamingConvention();
+
     public DbSet<User> Users { get; set; }
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<Comment> Comments { get; set; }
