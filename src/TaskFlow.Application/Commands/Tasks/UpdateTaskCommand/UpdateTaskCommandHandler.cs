@@ -45,7 +45,14 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         await _unitOfWork.SaveChangesAsync();
         
         var commentsCount = await _unitOfWork.Comments.CountAsync(c => c.TaskId == task.Id);
-        
+
+        // The generic repository doesn't Include navigations, so CreatedBy/AssignedTo may be null here.
+        // Load the related users explicitly instead of dereferencing unloaded navigation properties.
+        var createdBy = task.CreatedBy ?? await _unitOfWork.Users.GetByIdAsync(task.CreatedByUserId);
+        var assignedTo = task.AssignedToUserId is { } assignedId
+            ? task.AssignedTo ?? await _unitOfWork.Users.GetByIdAsync(assignedId)
+            : null;
+
         var taskDto = new TaskDto(
             Id: task.Id,
             Title: task.Title,
@@ -54,9 +61,9 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
             Priority: task.Priority.ToString(),
             DueDate: task.DueDate,
             CreatedById: task.CreatedByUserId,
-            CreatedByName: $"{task.CreatedBy.FirstName} {task.CreatedBy.LastName}",
+            CreatedByName: createdBy != null ? $"{createdBy.FirstName} {createdBy.LastName}" : string.Empty,
             AssignedToId: task.AssignedToUserId,
-            AssignedToName: task.AssignedTo != null ? $"{task.AssignedTo.FirstName} {task.AssignedTo.LastName}" : null,
+            AssignedToName: assignedTo != null ? $"{assignedTo.FirstName} {assignedTo.LastName}" : null,
             CreatedAt: task.CreatedAt,
             UpdatedAt: task.UpdatedAt,
             CommentsCount: commentsCount

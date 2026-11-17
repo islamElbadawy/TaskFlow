@@ -29,8 +29,10 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
         if (string.IsNullOrWhiteSpace(command.Email))
             return Result<UserDto>.Failure("Email is required");
 
+        var email = command.Email.Trim().ToLowerInvariant();
+
         var existingUser = await _unitOfWork.Users
-            .FirstOrDefaultAsync(u => u.Email == command.Email);
+            .FirstOrDefaultAsync(u => u.Email == email);
 
         if (existingUser != null)
             return Result<UserDto>.Failure("Email already registered");
@@ -44,7 +46,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
         {
             FirstName = command.FirstName,
             LastName = command.LastName,
-            Email = command.Email.ToLower(),
+            Email = email,
             PasswordHash = _passwordService.HashPassword(command.Password),
             Role = UserRole.User
         };

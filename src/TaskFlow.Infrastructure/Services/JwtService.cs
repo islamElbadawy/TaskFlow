@@ -18,10 +18,10 @@ public class JwtService : IJwtService
         _jwtSettings = jwtSettings.Value;
     }
 
-    public string GenerateToken(User user)
+    public (string Token, DateTime ExpiresAt) GenerateToken(User user)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
 
         var claims = new List<Claim>
         {
@@ -31,10 +31,12 @@ public class JwtService : IJwtService
             new(ClaimTypes.Role, user.Role.ToString()),
         };
 
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes);
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(_jwtSettings.ExpirationInMinutes),
+            Expires = expiresAt,
             Issuer = _jwtSettings.Issuer,
             Audience = _jwtSettings.Audience,
             SigningCredentials =
@@ -42,7 +44,7 @@ public class JwtService : IJwtService
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return (tokenHandler.WriteToken(token), expiresAt);
     }
 
     public Guid? ValidateToken(string token)
@@ -51,7 +53,7 @@ public class JwtService : IJwtService
             return null;
 
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
 
         try
         {

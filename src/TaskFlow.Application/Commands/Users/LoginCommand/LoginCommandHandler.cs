@@ -29,7 +29,8 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
         if (string.IsNullOrWhiteSpace(command.Password))
             return Result<LoginResponse>.Failure("Password is required");
 
-        var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == command.Email.ToLower());
+        var email = command.Email.Trim().ToLowerInvariant();
+        var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email);
 
         if (user == null)
             return Result<LoginResponse>.Failure("Invalid email or password");
@@ -37,8 +38,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
         if (!_passwordService.VerifyPassword(command.Password, user.PasswordHash))
             return Result<LoginResponse>.Failure("Invalid email or password");
 
-        var token = _jwtService.GenerateToken(user);
-        var expiresAt = DateTime.UtcNow.AddHours(24);
+        var (token, expiresAt) = _jwtService.GenerateToken(user);
 
         var userDto = new UserDto(
             Id: user.Id,

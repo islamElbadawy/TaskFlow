@@ -61,9 +61,14 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    // PUT is the correct verb for an update; POST is kept temporarily so existing clients don't break.
+    [HttpPut("{id}")]
     [HttpPost("{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserCommand command)
     {
+        if (!CanManageUser(id))
+            return Forbid();
+
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command);
 
@@ -92,6 +97,9 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(Guid id)
     {
+        if (!CanManageUser(id))
+            return Forbid();
+
         var command = new DeleteUserCommand { UserId = id };
 
         var result = await _commandDispatcher.DispatchAsync(command);
@@ -101,4 +109,8 @@ public class UsersController : ControllerBase
 
         return Ok(result);
     }
+
+    /// <summary>A user may manage only their own account; admins may manage any account.</summary>
+    private bool CanManageUser(Guid targetUserId) =>
+        _currentUserService.UserId == targetUserId || User.IsInRole("Admin");
 }

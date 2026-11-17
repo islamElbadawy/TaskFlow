@@ -22,16 +22,19 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
         if (user == null)
             return Result<UserDto>.Failure("User not found");
 
-        if (!string.IsNullOrEmpty(command.Email))
+        if (!string.IsNullOrWhiteSpace(command.Email))
         {
+            var email = command.Email.Trim().ToLowerInvariant();
+
+            // Another user (not this one) already owns the email?
             var existingUser =
                 await _unitOfWork.Users.FirstOrDefaultAsync(u =>
-                    u.Email == command.Email.ToLower() && u.Id == command.UserId);
+                    u.Email == email && u.Id != command.UserId);
 
             if (existingUser != null)
                 return Result<UserDto>.Failure("Email already exists");
 
-            user.Email = command.Email;
+            user.Email = email;
         }
 
         user.FirstName = command.FirstName;
