@@ -27,7 +27,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
     )
     {
         if (string.IsNullOrWhiteSpace(command.Email))
-            return Result<UserDto>.Failure("Email is required");
+            return Result<UserDto>.Validation("Email is required");
 
         var email = command.Email.Trim().ToLowerInvariant();
 
@@ -35,11 +35,11 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (existingUser != null)
-            return Result<UserDto>.Failure("Email already registered");
+            return Result<UserDto>.Conflict("Email already registered");
 
         // Validate password
         if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 6)
-            return Result<UserDto>.Failure("Password must be at least 6 characters");
+            return Result<UserDto>.Validation("Password must be at least 6 characters");
 
         // Create user
         var user = new User

@@ -23,10 +23,10 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         var task = await _unitOfWork.TasksItems.FirstOrDefaultAsync(t => t.Id == command.TaskId, cancellationToken);
         
         if (task == null)
-            return Result<TaskDto>.Failure("Task not found");
+            return Result<TaskDto>.NotFound("Task not found");
 
         if (string.IsNullOrWhiteSpace(command.Title))
-            return Result<TaskDto>.Failure("Title is required");
+            return Result<TaskDto>.Validation("Title is required");
 
         var previousAssignedToId = task.AssignedToUserId;
         

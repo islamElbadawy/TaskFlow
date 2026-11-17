@@ -21,7 +21,7 @@ public class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, Result<Us
 
 
         if (user == null)
-            return Result<UserDto>.Failure("User not found");
+            return Result<UserDto>.NotFound("User not found");
 
         var userDto = new UserDto
         (

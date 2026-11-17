@@ -20,18 +20,18 @@ public class UpdateUserRoleCommandHandler : ICommandHandler<UpdateUserRoleComman
     public async Task<Result<bool>> HandleAsync(UpdateUserRoleCommand command, CancellationToken cancellationToken = default)
     {
         if (!Enum.TryParse<UserRole>(command.NewRole, true, out var newRole))
-            return Result<bool>.Failure("Invalid role");
+            return Result<bool>.Validation("Invalid role");
 
         var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
         if (user == null)
-            return Result<bool>.Failure("User not found");
+            return Result<bool>.NotFound("User not found");
 
         // Prevent demoting the last remaining Admin
         if (user.Role == UserRole.Admin && newRole != UserRole.Admin)
         {
             var adminCount = await _unitOfWork.Users.CountAsync(u => u.Role == UserRole.Admin, cancellationToken);
             if (adminCount <= 1)
-                return Result<bool>.Failure("Cannot demote the last Admin");
+                return Result<bool>.Conflict("Cannot demote the last Admin");
         }
 
         user.Role = newRole;

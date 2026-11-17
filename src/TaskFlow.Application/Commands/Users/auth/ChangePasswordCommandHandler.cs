@@ -21,14 +21,14 @@ public class ChangePasswordCommandHandler : ICommandHandler<ChangePassowrdComman
     {
         var user = await _unitOfWork.Users.GetByIdAsync(command.UserId, cancellationToken);
         if(user == null)
-            return Result<bool>.Failure("User not found.");
+            return Result<bool>.NotFound("User not found.");
         
 
         if (!_passwordService.VerifyPassword(command.CurrentPassword, user.PasswordHash))  
-            return Result<bool>.Failure("Current password is incorrect.");
+            return Result<bool>.Validation("Current password is incorrect.");
         
         if(string.IsNullOrEmpty(command.NewPassword) || command.NewPassword.Length < 6)
-            return Result<bool>.Failure("New password must be at least 6 characters long.");
+            return Result<bool>.Validation("New password must be at least 6 characters long.");
 
         user.PasswordHash = _passwordService.HashPassword(command.NewPassword);
 

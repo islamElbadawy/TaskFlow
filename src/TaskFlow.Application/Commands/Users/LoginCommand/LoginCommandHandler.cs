@@ -24,10 +24,10 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
     {
         // Validate input
         if (string.IsNullOrWhiteSpace(command.Email))
-            return Result<LoginResponse>.Failure("Email is required");
+            return Result<LoginResponse>.Validation("Email is required");
 
         if (string.IsNullOrWhiteSpace(command.Password))
-            return Result<LoginResponse>.Failure("Password is required");
+            return Result<LoginResponse>.Validation("Password is required");
 
         var email = command.Email.Trim().ToLowerInvariant();
         var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
@@ -35,13 +35,13 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
         // Unknown email, wrong password and deactivated account all get the same message,
         // so the response doesn't reveal which accounts exist or are disabled.
         if (user == null)
-            return Result<LoginResponse>.Failure("Invalid email or password");
+            return Result<LoginResponse>.Unauthorized("Invalid email or password");
 
         if (!_passwordService.VerifyPassword(command.Password, user.PasswordHash))
-            return Result<LoginResponse>.Failure("Invalid email or password");
+            return Result<LoginResponse>.Unauthorized("Invalid email or password");
 
         if (!user.IsActive)
-            return Result<LoginResponse>.Failure("Invalid email or password");
+            return Result<LoginResponse>.Unauthorized("Invalid email or password");
 
         var (token, expiresAt) = _jwtService.GenerateToken(user);
 
