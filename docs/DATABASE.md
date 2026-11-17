@@ -114,6 +114,7 @@ What each role can do with the current endpoints:
 | Update a user's name/email | `PUT /api/users/{id}` | **own account only** (others → 403) | any account |
 | Change a role | `PUT /api/users/{id}/role` | 403 | yes (the last admin can't be demoted) |
 | Delete a user | `DELETE /api/users/{id}` | own account only | any account (fails if the user created tasks) |
+| List tasks (filters, paging), get a task | `GET /api/tasks`, `GET /api/tasks/{id}` | yes (all tasks) | yes |
 | Create a task | `POST /api/tasks` | yes | yes |
 
 ### 3.2 Tasks
@@ -155,8 +156,8 @@ Every notification type, read and unread. `related_task_id` links to the task.
 | `e0000000-0000-0000-0000-000000000005` | Sam | TaskAssigned | Manager User assigned you "Design notifications panel" | no | -7d |
 | `e0000000-0000-0000-0000-000000000006` | Regular | TaskUpdated | Manager User changed the due date of "Write docs" | yes | -3d |
 
-> There are no task-list, comment or notification endpoints yet (only `POST /api/tasks`), so for now
-> inspect tasks, comments and notifications with psql (section 5). They are planned in a follow-up branch.
+> Tasks can be read through the API (section 4.5). There are no comment or notification endpoints yet,
+> so inspect those with psql (section 5); `commentsCount` on each task shows how many comments it has.
 
 ---
 
@@ -228,11 +229,50 @@ $task = @{ title = "Try the API"; description = "Created from PowerShell"; prior
 
 The creator is always the logged-in user (taken from the token); a `createdById` in the body is ignored.
 
-### 4.5 Postman collection
+### 4.5 Read tasks
+
+`GET /api/tasks` returns a page of tasks, newest first, without descriptions. All query parameters are
+optional and combine with AND:
+
+| Parameter | Example | Meaning |
+|---|---|---|
+| `status` | `InProgress` | `Todo`, `InProgress` or `Done` (case-insensitive) |
+| `priority` | `high` | `Low`, `Medium` or `High` (case-insensitive) |
+| `assignedToId` | `33333333-…` | Tasks assigned to that user |
+| `unassigned` | `true` | Tasks assigned to nobody (not together with `assignedToId`) |
+| `createdById` | `11111111-…` | Tasks created by that user |
+| `overdue` | `true` | Past the due date and not `Done` |
+| `page`, `pageSize` | `2`, `10` | Paging: page from 1, size 1–100 (default 20) |
+
+An unknown status/priority or an out-of-range page size returns 400 with the validation errors.
+`GET /api/tasks/{id}` returns one task with its description and comment count, or 404.
+
+```powershell
+$h = Auth $user
+(Invoke-RestMethod "$api/api/tasks?overdue=true" -Headers $h).data.items | Select-Object title, dueDate, assignedToName
+(Invoke-RestMethod "$api/api/tasks?assignedToId=$userId&status=InProgress" -Headers $h).data
+(Invoke-RestMethod "$api/api/tasks/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" -Headers $h).data
+```
+
+With the seed data: `overdue=true` returns "Fix password reset email", `unassigned=true` returns
+"Set up CI pipeline", and `status=InProgress` returns three tasks.
+
+The list response looks like this:
+
+```json
+{ "isSuccess": true,
+  "data": { "items": [ { "id": "…", "title": "…", "status": "Todo", "priority": "High", "dueDate": "…",
+                         "isOverdue": true, "createdByName": "…", "assignedToName": "…", "commentsCount": 1, … } ],
+            "pageNumber": 1, "pageSize": 20, "totalCount": 8, "totalPages": 1,
+            "hasPreviousPage": false, "hasNextPage": false } }
+```
+
+### 4.6 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 39 requests with assertions: logins for every account, the inactive-login rejection,
-register and change-password, the 401/403/404 cases, role changes and task creation.
+checks above as 53 requests with assertions: logins for every account, the inactive-login rejection,
+register and change-password, the 401/403/404 cases, role changes, task creation and the task
+filters and paging.
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -244,7 +284,7 @@ You can run it repeatedly. Each run registers a throw-away user and deletes it a
 creates stay until you reset (section 6), or you can delete them in psql with
 `DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
 
-### 4.6 bash / curl equivalent
+### 4.7 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
