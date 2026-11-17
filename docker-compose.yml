@@ -1,0 +1,27 @@
+# Local PostgreSQL for TaskFlow development.
+#   cp .env.example .env   (then set POSTGRES_PASSWORD)
+#   docker compose up -d
+# Host port 5433 on purpose: 5432 is already used by another PostgreSQL on this machine.
+name: taskflow
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: taskflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: taskflow
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+    ports:
+      - "5433:5432"
+    volumes:
+      - taskflow-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  taskflow-pgdata:
