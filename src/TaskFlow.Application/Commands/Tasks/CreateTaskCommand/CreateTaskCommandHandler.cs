@@ -31,6 +31,9 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
             assignedTo = await _unitOfWork.Users.GetByIdAsync(command.AssignedToId.Value, cancellationToken);
             if (assignedTo == null)
                 return Result<TaskDto>.Validation("Assigned user not found");
+
+            if (!assignedTo.IsActive)
+                return Result<TaskDto>.Validation("Assigned user is inactive");
         }
 
         // The validator rejects unknown names; never fall back to a default (e.g. "Urgent" used to become Medium).

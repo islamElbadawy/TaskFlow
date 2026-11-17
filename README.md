@@ -127,7 +127,7 @@ users              tasks                   comments          notifications
 ├─ last_name       ├─ description          ├─ task_id (FK)   ├─ message
 ├─ email (unique)  ├─ status               ├─ user_id (FK)   ├─ type
 ├─ password_hash   ├─ priority             ├─ created_at     ├─ is_read
-├─ role            ├─ due_date             └─ updated_at     ├─ related_task_id
+├─ role            ├─ due_date             └─ updated_at     ├─ related_task_id (FK)
 ├─ is_active       ├─ created_by_user_id (FK)                ├─ created_at
 ├─ created_at      ├─ assigned_to_user_id (FK)               └─ updated_at
 └─ updated_at      ├─ created_at
@@ -135,6 +135,7 @@ users              tasks                   comments          notifications
 ```
 Enums are stored as text: status `Todo | InProgress | Done`, priority `Low | Medium | High`,
 role `User | Manager | Admin`, notification type `TaskAssigned | TaskUpdated | TaskCompleted | CommentAdded | DeadlineApproaching`.
+Deleting a task deletes its comments (cascade) and keeps its notifications with `related_task_id` set to null.
 
 ---
 
@@ -156,6 +157,10 @@ All endpoints except register/login need a `Bearer` token.
 | GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; paging `page`, `pageSize` |
 | GET | `/api/tasks/{id}` | logged in | One task with names and comment count |
 | POST | `/api/tasks` | logged in | Create a task (creator = caller) |
+| PUT | `/api/tasks/{id}` | creator, Manager, Admin | Replace title, description, priority, due date, status, assignee |
+| PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` |
+| PATCH | `/api/tasks/{id}/assignee` | creator, Manager, Admin | Assign `{ "assignedToId": "<guid>" }` or unassign with `null` (active users only) |
+| DELETE | `/api/tasks/{id}` | creator, Admin | Delete a task (its comments too) |
 
 ### Responses and errors
 
@@ -191,7 +196,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Auth: register, login, change password, JWT, inactive-user check | ✅ Done |
 | Users: list, get, update, role change, delete with permission checks | ✅ Done |
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
-| Tasks: update, status change, assign, delete | ⏳ Planned (`UpdateTaskCommand` handler exists, no endpoint) |
+| Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
 | Comments API | ⏳ Planned |
 | Notifications API + automatic notifications on task events | ⏳ Planned (persistence service exists) |
 | SignalR push | 🟡 Hub and notifier exist; connection tracking to be replaced, not triggered yet |

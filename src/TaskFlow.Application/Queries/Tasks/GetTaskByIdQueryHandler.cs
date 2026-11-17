@@ -18,23 +18,7 @@ public class GetTaskByIdQueryHandler : IQueryHandler<GetTaskByIdQuery, Result<Ta
         CancellationToken cancellationToken = default)
     {
         // One projected query: the task, its creator/assignee names and the comment count.
-        var task = (await _unitOfWork.TasksItems.ListAsync(
-            t => t.Id == query.TaskId,
-            t => new TaskDto(
-                t.Id,
-                t.Title,
-                t.Description,
-                t.Status.ToString(),
-                t.Priority.ToString(),
-                t.DueDate,
-                t.CreatedByUserId,
-                t.CreatedBy.FirstName + " " + t.CreatedBy.LastName,
-                t.AssignedToUserId,
-                t.AssignedTo != null ? t.AssignedTo.FirstName + " " + t.AssignedTo.LastName : null,
-                t.CreatedAt,
-                t.UpdatedAt,
-                t.Comments.Count),
-            cancellationToken)).SingleOrDefault();
+        var task = await _unitOfWork.TasksItems.GetDtoAsync(query.TaskId, cancellationToken);
 
         return task is null
             ? Result<TaskDto>.NotFound("Task not found")

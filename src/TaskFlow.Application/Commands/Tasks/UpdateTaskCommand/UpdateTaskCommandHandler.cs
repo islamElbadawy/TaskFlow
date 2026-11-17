@@ -1,11 +1,13 @@
 ﻿using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
+using TaskFlow.Application.Queries.Tasks;
 using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 
 namespace TaskFlow.Application.Commands.Tasks.UpdateTaskCommand;
 
+/// <summary>PUT /api/tasks/{id}: replaces every editable field. Creator, Manager or Admin only.</summary>
 public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Result<TaskDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -18,12 +20,11 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
     }
+
     public async Task<Result<TaskDto>> HandleAsync(UpdateTaskCommand command, CancellationToken cancellationToken)
     {
-        var task = await _unitOfWork.TasksItems.FirstOrDefaultAsync(t => t.Id == command.TaskId, cancellationToken);
-        
-        if (task == null)
-            return Result<TaskDto>.NotFound("Task not found");
+        if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
+            return Result<TaskDto>.Unauthorized(TaskCommandGuards.NoActorMessage);
 
         if (string.IsNullOrWhiteSpace(command.Title))
             return Result<TaskDto>.Validation("Title is required");
@@ -35,46 +36,29 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         if (!Enum.TryParse<TaskPriority>(command.Priority, true, out var priority) || !Enum.IsDefined(priority))
             return Result<TaskDto>.Validation("Priority must be one of: Low, Medium, High");
 
-        var previousAssignedToId = task.AssignedToUserId;
-        
-        task.Title = command.Title;
-        task.Description = command.Description;
-        task.DueDate = command.DueDate;
-        task.AssignedToUserId = command.AssignedToId;
-        task.Status = status;
-        task.Priority = priority;
+        var task = await _unitOfWork.TasksItems.GetByIdAsync(command.TaskId, cancellationToken);
+        if (task == null)
+            return Result<TaskDto>.NotFound("Task not found");
 
-        await _unitOfWork.TasksItems.UpdateAsync(task, cancellationToken);
+        if (!task.CanBeEditedBy(actorId, actorRole))
+            return Result<TaskDto>.Forbidden("Only the task's creator, a Manager or an Admin can edit this task.");
+
+        // Only a new assignee is checked; keeping the current one (even if since deactivated) is allowed.
+        if (command.AssignedToId is { } assigneeId && assigneeId != task.AssignedToUserId)
+        {
+            var assigneeError = await _unitOfWork.CheckAssigneeAsync(assigneeId, cancellationToken);
+            if (assigneeError != null)
+                return Result<TaskDto>.Validation(assigneeError);
+        }
+
+        task.UpdateDetails(command.Title, command.Description, priority, command.DueDate);
+        task.ChangeStatus(status);
+        task.AssignTo(command.AssignedToId);
+
+        // The task is tracked, so SaveChanges writes only the columns that changed.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        
-        // The generic repository doesn't Include navigations, so read the related names and the comment
-        // count with one projected query instead of dereferencing unloaded navigation properties.
-        var details = (await _unitOfWork.TasksItems.ListAsync(
-            t => t.Id == task.Id,
-            t => new
-            {
-                CreatedByName = t.CreatedBy.FirstName + " " + t.CreatedBy.LastName,
-                AssignedToName = t.AssignedTo != null ? t.AssignedTo.FirstName + " " + t.AssignedTo.LastName : null,
-                CommentsCount = t.Comments.Count
-            },
-            cancellationToken)).Single();
 
-        var taskDto = new TaskDto(
-            Id: task.Id,
-            Title: task.Title,
-            Description: task.Description,
-            Status: task.Status.ToString(),
-            Priority: task.Priority.ToString(),
-            DueDate: task.DueDate,
-            CreatedById: task.CreatedByUserId,
-            CreatedByName: details.CreatedByName,
-            AssignedToId: task.AssignedToUserId,
-            AssignedToName: details.AssignedToName,
-            CreatedAt: task.CreatedAt,
-            UpdatedAt: task.UpdatedAt,
-            CommentsCount: details.CommentsCount
-        );
-
-        return Result<TaskDto>.Success(taskDto);
+        var taskDto = await _unitOfWork.TasksItems.GetDtoAsync(task.Id, cancellationToken);
+        return Result<TaskDto>.Success(taskDto!);
     }
 }

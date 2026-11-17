@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Tasks;
+using TaskFlow.Application.Commands.Tasks.UpdateTaskCommand;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.Queries.Tasks;
@@ -52,6 +53,43 @@ public class TasksController : ControllerBase
 
         command.CreatedById = userId;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Replaces title, description, priority, due date, assignee and status. Creator, Manager or Admin;
+    /// 404 unknown task, 403 not allowed, 400 unknown or inactive assignee.</summary>
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Body <c>{ "status": "InProgress" }</c>. Creator, assignee, Manager or Admin.</summary>
+    [HttpPatch("{id:guid}/status")]
+    public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeTaskStatusCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Body <c>{ "assignedToId": "&lt;guid&gt;" }</c>, or <c>null</c> to unassign. Creator, Manager or Admin;
+    /// 400 when the user is unknown or inactive.</summary>
+    [HttpPatch("{id:guid}/assignee")]
+    public async Task<IActionResult> Assign(Guid id, [FromBody] AssignTaskCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Creator or Admin. Comments are deleted with the task; notifications stay, without the task link.</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var result = await _commandDispatcher.DispatchAsync(new DeleteTaskCommand { TaskId = id }, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
 }
