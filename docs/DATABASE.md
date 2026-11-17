@@ -116,6 +116,9 @@ What each role can do with the current endpoints:
 | Delete a user | `DELETE /api/users/{id}` | own account only | any account (fails if the user created tasks) |
 | List tasks (filters, paging), get a task | `GET /api/tasks`, `GET /api/tasks/{id}` | yes (all tasks) | yes |
 | Create a task | `POST /api/tasks` | yes | yes |
+| Edit a task / (re)assign it | `PUT /api/tasks/{id}`, `PATCH /api/tasks/{id}/assignee` | User: own tasks only (creator); Manager: any task | any task |
+| Change a task's status | `PATCH /api/tasks/{id}/status` | User: tasks they created **or are assigned to**; Manager: any task | any task |
+| Delete a task | `DELETE /api/tasks/{id}` | own tasks only (creator); **a Manager can't delete others' tasks** | any task |
 
 ### 3.2 Tasks
 
@@ -272,13 +275,43 @@ The list response looks like this:
             "hasPreviousPage": false, "hasNextPage": false } }
 ```
 
-### 4.6 Postman collection
+### 4.6 Change, assign and delete a task
+
+Using the request body `$task` from 4.4 (the Manager creates the task, assigned to Sam):
+
+```powershell
+$id  = (Invoke-RestMethod "$api/api/tasks" -Method Post -Headers (Auth $manager) -ContentType "application/json" -Body $task).data.id
+$sam = Login "user2@taskflow.dev"
+
+# The assignee may change the status (but not edit or reassign the task: 403)
+Invoke-RestMethod "$api/api/tasks/$id/status" -Method Patch -Headers (Auth $sam) -ContentType "application/json" `
+    -Body '{ "status": "InProgress" }'
+
+# Creator, Manager or Admin: full update (every field is replaced, so send the values you want to keep)
+$update = @{ title = "Try the API (edited)"; description = ""; priority = "Low"; status = "InProgress";
+             dueDate = $null; assignedToId = "44444444-4444-4444-4444-444444444444" } | ConvertTo-Json
+Invoke-RestMethod "$api/api/tasks/$id" -Method Put -Headers (Auth $manager) -ContentType "application/json" -Body $update
+
+# Reassign, or unassign with null. The inactive account can't be assigned (400 "Assigned user is inactive").
+Invoke-RestMethod "$api/api/tasks/$id/assignee" -Method Patch -Headers (Auth $manager) -ContentType "application/json" `
+    -Body '{ "assignedToId": null }'
+
+# Delete: the creator or an Admin (a Manager who didn't create the task gets 403)
+Invoke-RestMethod "$api/api/tasks/$id" -Method Delete -Headers (Auth $manager)
+```
+
+PUT and both PATCH requests return the updated task (same shape as `GET /api/tasks/{id}`). Errors: 404 unknown
+task, 403 not allowed (see the table in 3.1), 400 unknown status/priority or an unknown/inactive new assignee.
+Keeping an assignee who has since been deactivated is allowed; only a *new* assignee must be active. Deleting a
+task deletes its comments; its notifications stay, with `related_task_id` cleared.
+
+### 4.7 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 54 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 82 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
-`detail`), role changes, task creation and the task
-filters and paging.
+`detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
+assign/unassign and delete with every permission case).
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -286,18 +319,19 @@ filters and paging.
 3. Right-click the collection → **Run collection** and run it **in order**. Later requests use the tokens
    and ids saved by the login and register requests.
 
-You can run it repeatedly. Each run registers a throw-away user and deletes it at the end. The tasks it
-creates stay until you reset (section 6), or you can delete them in psql with
+You can run it repeatedly, and it leaves the database as it was: each run registers a throw-away user and deletes
+it, and folder 5 deletes every task the run created (titles start with `Postman:`). Its last request fails if a
+`Postman:` task is still there, e.g. after an interrupted run; delete those in psql with
 `DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
 
-### 4.7 Automated integration tests
+### 4.8 Automated integration tests
 
 `dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
 throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
 memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
 development database on port 5433 is never touched; the container is removed afterwards.
 
-### 4.8 bash / curl equivalent
+### 4.9 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
