@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Users;
 using TaskFlow.Application.Commands.Users.auth;
@@ -24,6 +25,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimiting.AuthPolicy)]
     public async Task<IActionResult> Register([FromBody] RegisterUserCommand command)
     {
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
@@ -31,6 +33,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimiting.AuthPolicy)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command)
     {
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);

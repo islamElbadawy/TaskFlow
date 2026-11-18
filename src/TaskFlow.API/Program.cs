@@ -99,6 +99,9 @@ builder.Services.AddCors(options => options.AddPolicy(FrontendCorsPolicy, policy
         policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
 }));
 
+// Login and register: a fixed window per client IP (RateLimiting:Auth), 429 when exceeded.
+builder.Services.AddTaskFlowRateLimiting(builder.Configuration);
+
 builder.Services.AddApplication();
 
 // Add Infrastructure Layer (Database, Repositories)
@@ -123,6 +126,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors(FrontendCorsPolicy);
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

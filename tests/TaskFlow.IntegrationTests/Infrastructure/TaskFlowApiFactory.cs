@@ -46,7 +46,9 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["Seed:ResetDatabase"] = "false",
             ["Seed:RunSmokeTestAndExit"] = "false",
             // Tests run the reminder logic themselves; a background run would add notifications at random moments.
-            ["Reminders:Enabled"] = "false"
+            ["Reminders:Enabled"] = "false",
+            // The tests log in far more often than a person; RateLimitingTests lowers it on its own host.
+            ["RateLimiting:Auth:PermitLimit"] = "100000"
         };
         foreach (var (key, value) in settings)
             builder.UseSetting(key, value);
