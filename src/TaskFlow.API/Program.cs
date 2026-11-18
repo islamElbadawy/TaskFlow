@@ -7,13 +7,25 @@ using TaskFlow.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using TaskFlow.API.Common;
 using TaskFlow.API.Hubs;
-using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    // Requests MVC can't bind (malformed JSON, wrong types, missing required fields) get the same shape as validator
+    // failures: 400 ValidationProblemDetails with title "Validation" and an errors object per field.
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problem = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>()
+            .CreateValidationProblemDetails(context.HttpContext, context.ModelState, StatusCodes.Status400BadRequest,
+                title: "Validation", detail: "One or more validation errors occurred.");
+        return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Errors: expected failures become ProblemDetails in the controllers (ResultExtensions), unexpected exceptions
@@ -89,10 +101,6 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddApplication();
-
-// FluentValidation automatic model validation for controller input models
-// Requires FluentValidation.AspNetCore package. Validators are registered in the Application layer.
-builder.Services.AddFluentValidationAutoValidation();
 
 // Add Infrastructure Layer (Database, Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);
