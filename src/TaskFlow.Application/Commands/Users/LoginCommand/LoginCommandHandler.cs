@@ -52,6 +52,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
             FullName: $"{user.FirstName} {user.LastName}",
             Email: user.Email,
             Role: user.Role.ToString(),
+            IsActive: user.IsActive,
             CreatedAt: user.CreatedAt
         );
 

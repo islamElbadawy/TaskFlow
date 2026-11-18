@@ -17,22 +17,9 @@ public class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, Result<Us
     public async Task<Result<UserDto>> HandleAsync(GetUserByIdQuery query,
         CancellationToken cancellationToken = default)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(query.UserId, cancellationToken);
-
-
-        if (user == null)
-            return Result<UserDto>.NotFound("User not found");
-
-        var userDto = new UserDto
-        (
-            Id: user.Id,
-            FirstName: user.FirstName,
-            LastName: user.LastName,
-            FullName: $"{user.FirstName} {user.LastName}",
-            Email: user.Email,
-            Role: user.Role.ToString(),
-            CreatedAt: user.CreatedAt
-        );
-        return Result<UserDto>.Success(userDto);
+        var user = await _unitOfWork.Users.GetDtoAsync(query.UserId, cancellationToken);
+        return user is null
+            ? Result<UserDto>.NotFound("User not found")
+            : Result<UserDto>.Success(user);
     }
 }

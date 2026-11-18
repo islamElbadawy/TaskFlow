@@ -69,7 +69,9 @@ builder.Services.AddAuthentication(x =>
                 }
 
                 return Task.CompletedTask;
-            }
+            },
+            // Deactivated or deleted users are rejected even with an unexpired token (one PK lookup per request).
+            OnTokenValidated = ActiveUserTokenCheck.ValidateAsync
         };
     });
 
