@@ -1,45 +1,23 @@
-using System.Collections.Concurrent;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using TaskFlow.Application.DTOs;
 
 namespace TaskFlow.API.Hubs;
 
-[Authorize]
-public class NotificationHub : Hub
+/// <summary>Methods the server calls on connected clients.</summary>
+public interface INotificationClient
 {
-    private static readonly ConcurrentDictionary<Guid, List<string>> _userConnections = new();
+    /// <summary>A new notification for the connected user (same shape as GET /api/notifications items).</summary>
+    Task ReceiveNotification(NotificationDto notification);
+}
 
-    public override Task OnConnectedAsync()
-    {
-        var userId = GetUserId();
-        if (userId.HasValue)
-        {
-            _userConnections.AddOrUpdate(userId.Value,
-                new List<string> { Context.ConnectionId },
-                (_, existing) => { existing.Add(Context.ConnectionId); return existing; });
-        }
-        return base.OnConnectedAsync();
-    }
-
-    public override Task OnDisconnectedAsync(Exception? exception)
-    {
-        var userId = GetUserId();
-        if (userId.HasValue && _userConnections.TryGetValue(userId.Value, out var connections))
-        {
-            connections.Remove(Context.ConnectionId);
-            if (connections.Count == 0)
-                _userConnections.TryRemove(userId.Value, out _);
-        }
-        return base.OnDisconnectedAsync(exception);
-    }
-
-    public static IReadOnlyList<string> GetConnectionsForUser(Guid userId) =>
-        _userConnections.TryGetValue(userId, out var connections) ? connections : Array.Empty<string>();
-
-    private Guid? GetUserId()
-    {
-        var claim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(claim, out var id) ? id : null;
-    }
+/// <summary>
+/// Real-time channel at <c>/hubs/notifications</c>. Clients connect with their JWT
+/// (<c>?access_token=...</c>, see Program.cs) and receive <c>ReceiveNotification</c>. No connection bookkeeping
+/// is needed: SignalR groups connections by user via the default IUserIdProvider (ClaimTypes.NameIdentifier),
+/// and the server sends with <c>Clients.User(userId)</c>.
+/// </summary>
+[Authorize]
+public class NotificationHub : Hub<INotificationClient>
+{
 }

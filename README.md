@@ -21,10 +21,10 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 | Capability | Description | State |
 |---|---|---|
 | **User Accounts** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Deactivated accounts can't log in | ✅ |
-| **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) | 🟡 create and read only |
+| **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task permissions | ✅ |
 | **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
-| **Collaboration** | Comment threads on each task | 🟡 stored and seeded, no API yet |
-| **Awareness** | In-app notifications (real-time via SignalR) + email alerts | 🟡 stored and seeded, no API or triggers yet |
+| **Collaboration** | Comment threads on each task | ✅ |
+| **Awareness** | In-app notifications (real-time via SignalR) + email alerts | 🟡 notifications automatic + live; email planned |
 | **Oversight** | Dashboard with stats (total/todo/in-progress/done/overdue) and "my tasks" | ⏳ |
 | **Access Control** | Role-based authorization; users manage only their own account, Admins manage everyone | ✅ |
 
@@ -67,7 +67,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 
 ### API, Real-time & Docs
 - **ASP.NET Core controllers**, **Swagger UI** (Swashbuckle) in Development
-- **SignalR** hub at `/hubs/notifications` (JWT via `access_token` query string)
+- **SignalR** typed hub at `/hubs/notifications` (JWT via `access_token` query string), pushes `ReceiveNotification` to the user with `Clients.User` — see [docs/REALTIME.md](docs/REALTIME.md)
 - **Postman collection** with assertions: [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json)
 
 ---
@@ -110,7 +110,7 @@ src/
   TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (dispatchers, results, ports)
   TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/
   TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs
-docs/                       DATABASE.md (setup, seed data, testing), BUGFIXES.md
+docs/                       DATABASE.md (setup, seed data, testing), REALTIME.md (notifications, SignalR client), BUGFIXES.md
 postman/                    API test collection
 tests/                      TaskFlow.IntegrationTests (xUnit, WebApplicationFactory, Testcontainers)
 docker-compose.yml          Local PostgreSQL 17
@@ -165,6 +165,11 @@ All endpoints except register/login need a `Bearer` token.
 | POST | `/api/tasks/{taskId}/comments` | logged in | Add a comment `{ "content": "..." }` (1-1000 characters; author = caller) |
 | PUT | `/api/comments/{id}` | author | Edit a comment |
 | DELETE | `/api/comments/{id}` | author, Admin | Delete a comment |
+| GET | `/api/notifications` | logged in (own) | Your notifications, newest first; `unread=true\|false`, `page`, `pageSize` |
+| GET | `/api/notifications/unread-count` | logged in (own) | Number of unread notifications |
+| PATCH | `/api/notifications/{id}/read` | logged in (own) | Mark one as read (404 if not yours) |
+| POST | `/api/notifications/read-all` | logged in (own) | Mark all as read; returns how many changed |
+| WS | `/hubs/notifications` | logged in | SignalR: receive `ReceiveNotification` live ([docs/REALTIME.md](docs/REALTIME.md)) |
 
 ### Responses and errors
 
@@ -202,8 +207,8 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
 | Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
 | Comments: list (paged), add, edit (author), delete (author or Admin) | ✅ Done |
-| Notifications API + automatic notifications on task events | ⏳ Planned (persistence service exists) |
-| SignalR push | 🟡 Hub and notifier exist; connection tracking to be replaced, not triggered yet |
+| Notifications API + automatic notifications on task/comment events (saved with the change) | ✅ Done |
+| SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
 | Dashboard | ⏳ Planned |
 | User activation / deactivation endpoint | ⏳ Planned |
 | Email alerts, deadline reminders | ⏳ Planned (MailKit referenced, no implementation) |

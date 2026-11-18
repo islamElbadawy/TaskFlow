@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using TaskFlow.Application.Common.Dispatchers;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Notifications;
 
 namespace TaskFlow.Application;
 
@@ -13,6 +14,9 @@ public static class DependencyInjection
         // Register Dispatchers
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
+
+        // Who gets notified about task/comment events (stages notifications for the handler's SaveChanges)
+        services.AddScoped<TaskNotifications>();
 
         // Auto-register all command handlers
         RegisterHandlers(services, typeof(ICommandHandler<,>));

@@ -1,5 +1,6 @@
 using TaskFlow.Application.Common;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Notifications;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Tasks;
@@ -13,11 +14,14 @@ public class ChangeTaskStatusCommandHandler : ICommandHandler<ChangeTaskStatusCo
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
+    private readonly TaskNotifications _taskNotifications;
 
-    public ChangeTaskStatusCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService)
+    public ChangeTaskStatusCommandHandler(IUnitOfWork unitOfWork, ICurrentUserService currentUserService,
+        TaskNotifications taskNotifications)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
+        _taskNotifications = taskNotifications;
     }
 
     public async Task<Result<TaskDto>> HandleAsync(ChangeTaskStatusCommand command, CancellationToken cancellationToken)
@@ -36,8 +40,18 @@ public class ChangeTaskStatusCommandHandler : ICommandHandler<ChangeTaskStatusCo
             return Result<TaskDto>.Forbidden(
                 "Only the task's creator, its assignee, a Manager or an Admin can change its status.");
 
+        var previousStatus = task.Status;
         task.ChangeStatus(status);
+
+        if (status != previousStatus)
+        {
+            if (status == TaskItemStatus.Done)
+                await _taskNotifications.TaskCompletedAsync(actorId, task.Id, task.Title, task.CreatedByUserId, cancellationToken);
+            await _taskNotifications.StatusChangedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, status, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _taskNotifications.PublishAsync(cancellationToken);
 
         var taskDto = await _unitOfWork.TasksItems.GetDtoAsync(task.Id, cancellationToken);
         return Result<TaskDto>.Success(taskDto!);
