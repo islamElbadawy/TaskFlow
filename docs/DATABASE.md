@@ -122,6 +122,7 @@ What each role can do with the current endpoints:
 | Read and add comments | `GET`/`POST /api/tasks/{taskId}/comments` | yes (any task) | yes |
 | Edit a comment | `PUT /api/comments/{id}` | own comments only | own comments only (an Admin can't edit others' words) |
 | Delete a comment | `DELETE /api/comments/{id}` | own comments only | any comment (moderation) |
+| Notifications: list, unread count, mark read, read all | `/api/notifications…` | own notifications only | own notifications only |
 
 ### 3.2 Tasks
 
@@ -162,8 +163,9 @@ Every notification type, read and unread. `related_task_id` links to the task.
 | `e0000000-0000-0000-0000-000000000005` | Sam | TaskAssigned | Manager User assigned you "Design notifications panel" | no | -7d |
 | `e0000000-0000-0000-0000-000000000006` | Regular | TaskUpdated | Manager User changed the due date of "Write docs" | yes | -3d |
 
-> Tasks can be read through the API (section 4.5). There are no comment or notification endpoints yet,
-> so inspect those with psql (section 5); `commentsCount` on each task shows how many comments it has.
+> Everything above can be read through the API: tasks (4.5), comments (4.7) and each user's own
+> notifications (4.8). New notifications are created automatically by task and comment changes, see
+> [REALTIME.md](REALTIME.md).
 
 ---
 
@@ -331,13 +333,40 @@ Content must be 1-1000 characters (surrounding spaces are trimmed); an empty one
 Unknown task or comment: 404. The seeded comments above make good test data: e.g. Sam trying to delete
 `c0000000-…-0003` (written by Regular User) gets 403. A task's `commentsCount` reflects the changes.
 
-### 4.8 Postman collection
+### 4.8 Notifications
+
+```powershell
+# Regular User has 2 unread seeded notifications (an assignment and a deadline reminder)
+(Invoke-RestMethod "$api/api/notifications/unread-count" -Headers (Auth $user)).data
+(Invoke-RestMethod "$api/api/notifications?unread=true" -Headers (Auth $user)).data.items | Format-Table type, message, createdAt
+
+# Changes create notifications automatically: the Manager assigns a task to Sam -> Sam gets "TaskAssigned"
+$sam = Login "user2@taskflow.dev"
+$body = @{ title = "Notify Sam"; description = ""; priority = "Low"; assignedToId = "44444444-4444-4444-4444-444444444444" } | ConvertTo-Json
+$t = (Invoke-RestMethod "$api/api/tasks" -Method Post -Headers (Auth $manager) -ContentType "application/json" -Body $body).data
+(Invoke-RestMethod "$api/api/notifications" -Headers (Auth $sam)).data.items[0]   # Manager User assigned you "Notify Sam"
+
+# Mark one, or all, as read
+$id = (Invoke-RestMethod "$api/api/notifications?unread=true" -Headers (Auth $sam)).data.items[0].id
+Invoke-RestMethod "$api/api/notifications/$id/read" -Method Patch -Headers (Auth $sam)
+Invoke-RestMethod "$api/api/notifications/read-all" -Method Post -Headers (Auth $sam)   # data = how many changed
+
+Invoke-RestMethod "$api/api/tasks/$($t.id)" -Method Delete -Headers (Auth $manager)    # clean up
+```
+
+Each user only ever sees their own notifications; marking someone else's returns 404. Who is notified about what,
+and how to receive them live over SignalR (with a JavaScript client example): [REALTIME.md](REALTIME.md).
+Note that the PowerShell example marks Sam's seeded notification as read; reset the database (section 6) to get
+the seed state back.
+
+### 4.9 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 104 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 132 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
-assign/unassign and delete with every permission case) and comments (list, add, edit, delete).
+assign/unassign and delete with every permission case), comments (list, add, edit, delete) and notifications
+(automatic creation, list, unread count, mark read, read all).
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -345,20 +374,26 @@ assign/unassign and delete with every permission case) and comments (list, add, 
 3. Right-click the collection → **Run collection** and run it **in order**. Later requests use the tokens
    and ids saved by the login and register requests.
 
-You can run it repeatedly, and it leaves the database as it was: each run registers a throw-away user and deletes
-it, folder 5 deletes every task the run created (titles start with `Postman:`) and folder 6 every comment it
-added. The last request of folder 5 fails if a
-`Postman:` task is still there, e.g. after an interrupted run; delete those in psql with
+You can run it repeatedly. Each run registers throw-away users and deletes them, folder 5 deletes every task the
+run created (titles start with `Postman:`) and folder 6 every comment it added. The last request of folder 5
+fails if a `Postman:` task is still there, e.g. after an interrupted run; delete those in psql with
 `DELETE FROM tasks WHERE title LIKE 'Postman:%';`.
 
-### 4.9 Automated integration tests
+What a run does leave behind: the automatic notifications that folders 3, 5 and 6 trigger for the seeded
+accounts (Sam is assigned tasks, the Manager and Regular User get comment notifications on "Write docs";
+about 7 per run). They are history like any other notification. To remove them, delete the ones that are not
+seed rows, e.g. `DELETE FROM notifications WHERE id::text NOT LIKE 'e0000000-%';` (this also removes
+notifications from your own manual testing), or reset the database (section 6). Folder 7 works with its own
+throw-away user and leaves nothing.
+
+### 4.10 Automated integration tests
 
 `dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
 throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
 memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
 development database on port 5433 is never touched; the container is removed afterwards.
 
-### 4.10 bash / curl equivalent
+### 4.11 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
