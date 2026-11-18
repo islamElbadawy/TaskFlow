@@ -28,6 +28,8 @@ public class ChangePasswordCommandHandler : ICommandHandler<ChangePassowrdComman
             return Result<bool>.Validation("Current password is incorrect.");
 
         user.PasswordHash = _passwordService.HashPassword(command.NewPassword);
+        // Signs out every session, including a stolen token and the caller's own: everyone logs in with the new password.
+        user.RevokeTokens();
 
         await _unitOfWork.Users.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

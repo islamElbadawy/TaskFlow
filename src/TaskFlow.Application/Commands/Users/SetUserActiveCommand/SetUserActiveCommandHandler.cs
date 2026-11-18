@@ -3,7 +3,6 @@ using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Users;
-using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 
 namespace TaskFlow.Application.Commands.Users.SetUserActiveCommand;
@@ -44,13 +43,8 @@ public class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveCommand,
             if (user.Id == actorId)
                 return Result<UserDto>.Conflict(CannotDeactivateSelfMessage);
 
-            if (user.Role == UserRole.Admin)
-            {
-                var activeAdmins = await _unitOfWork.Users.CountAsync(
-                    u => u.Role == UserRole.Admin && u.IsActive, cancellationToken);
-                if (activeAdmins <= 1)
-                    return Result<UserDto>.Conflict(LastActiveAdminMessage);
-            }
+            if (await _unitOfWork.Users.IsLastActiveAdminAsync(user, cancellationToken))
+                return Result<UserDto>.Conflict(LastActiveAdminMessage);
         }
 
         if (user.IsActive != isActive)

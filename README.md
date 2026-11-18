@@ -65,10 +65,11 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 
 ### Security
 - **JWT Bearer** authentication (self-issued; signing key in user-secrets); every authenticated request also checks
-  that the user still exists and is active (one primary-key lookup), so deactivation takes effect immediately
+  that the user still exists, is active and has the same security stamp as the token (one primary-key lookup), so
+  deactivation takes effect immediately and a password or role change signs out every existing token
 - **BCrypt** password hashing
 - Role-based (`[Authorize(Roles = "Admin")]`) and ownership checks in controllers
-- **Rate limiting** on login and register: a fixed window per client IP (10 per minute by default), then 429
+- **Rate limiting** on login, register and change-password: a fixed window per client IP (10 per minute by default), then 429
 - **CORS** only for the origins in `Cors:AllowedOrigins` (none by default; local front-end ports in Development)
 - No known-vulnerable NuGet packages (`dotnet list package --vulnerable --include-transitive`)
 
@@ -158,12 +159,12 @@ All endpoints except register/login need a `Bearer` token.
 |---|---|---|---|
 | POST | `/api/auth/register` | anyone | Create an account (role `User`) |
 | POST | `/api/auth/login` | anyone | Get a JWT (inactive accounts are rejected) |
-| POST | `/api/auth/change-password` | logged in | Change own password |
+| POST | `/api/auth/change-password` | logged in | Change own password; signs out every session, so log in again with the new password |
 | GET | `/api/users` | logged in | List users (each with `isActive`); `?isActive=true\|false` |
 | GET | `/api/users/me` | logged in | Current user |
 | GET | `/api/users/{id}` | logged in | One user |
 | PUT | `/api/users/{id}` | self or Admin | Update name/email |
-| PUT | `/api/users/{id}/role` | Admin | Change role (the last Admin can't be demoted) |
+| PUT | `/api/users/{id}/role` | Admin | Change role (the last active Admin can't be demoted); the user's existing tokens stop working |
 | PATCH | `/api/users/{id}/active` | Admin | Deactivate `{ "isActive": false }` or reactivate `true` (not yourself, not the last active Admin) |
 | DELETE | `/api/users/{id}` | self or Admin | Delete (not if the user created tasks) |
 | GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; paging `page`, `pageSize` |
@@ -201,7 +202,7 @@ Success: `200` with `{ "isSuccess": true, "data": { ... } }`. Failure: an RFC 94
 | 401 | `Unauthorized` | Missing/invalid token, or the token of a deactivated/deleted user; failed login (same message for unknown email, wrong password and inactive account) |
 | 403 | `Forbidden` | Logged in but not allowed (e.g. a User editing another account, a non-Admin changing a role) |
 | 404 | `NotFound` | Unknown user or task |
-| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting the last Admin, deactivating yourself or the last active Admin |
+| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting or deleting the last active Admin, deactivating yourself or the last active Admin |
 | 429 | `TooManyRequests` | Too many logins/registrations from one IP; wait for the `Retry-After` seconds |
 | 500 | `Failure` | Unexpected error (logged; no internals in the response) |
 

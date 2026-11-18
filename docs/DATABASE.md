@@ -122,7 +122,7 @@ What each role can do with the current endpoints:
 | Change own password | `POST /api/auth/change-password` | own account | own account |
 | List users, get a user, get me | `GET /api/users`, `GET /api/users/{id}`, `GET /api/users/me` | yes | yes |
 | Update a user's name/email | `PUT /api/users/{id}` | **own account only** (others → 403) | any account |
-| Change a role | `PUT /api/users/{id}/role` | 403 | yes (the last admin can't be demoted) |
+| Change a role | `PUT /api/users/{id}/role` | 403 | yes (the last active Admin can't be demoted; the user's tokens are revoked) |
 | Deactivate / reactivate a user | `PATCH /api/users/{id}/active` | 403 | yes (not themselves, not the last active Admin) |
 | Delete a user | `DELETE /api/users/{id}` | own account only | any account (fails if the user created tasks) |
 | List tasks (filters, paging), get a task | `GET /api/tasks`, `GET /api/tasks/{id}` | yes (all tasks) | yes |
@@ -206,7 +206,7 @@ ProblemDetails (`application/problem+json`) with the status code of the error, `
 `detail` = message, e.g. `{ "title": "NotFound", "status": 404, "detail": "Task not found", ... }`:
 400 `Validation` (validator and binding failures also list the fields in `errors`), 401 `Unauthorized` (no/invalid token,
 the token of a deactivated or deleted user, failed login), 403 `Forbidden`, 404 `NotFound`, 409 `Conflict` (duplicate email, deleting a user who created
-tasks, demoting the last Admin, deactivating yourself or the last active Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
+tasks, demoting or deleting the last active Admin, deactivating yourself or the last active Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
 for these; the body is in `$_.ErrorDetails.Message`.
 
 ### 4.2 The inactive account can't log in (activation)

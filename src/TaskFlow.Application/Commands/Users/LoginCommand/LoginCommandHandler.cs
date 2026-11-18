@@ -20,6 +20,10 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
         _jwtService = jwtService;
     }
 
+    /// <summary>A hash of a random password with the same cost as real ones, checked when the email is unknown.</summary>
+    private string DummyHash => _dummyHash ??= _passwordService.HashPassword(Guid.NewGuid().ToString());
+    private static string? _dummyHash;
+
     public async Task<Result<LoginResponse>> HandleAsync(LoginCommand command, CancellationToken cancellationToken)
     {
         // Email and password presence is checked by LoginCommandValidator (run by the dispatcher).
@@ -28,8 +32,12 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
 
         // Unknown email, wrong password and deactivated account all get the same message,
         // so the response doesn't reveal which accounts exist or are disabled.
+        // An unknown email still pays for one hash check, so the response time doesn't reveal it either.
         if (user == null)
+        {
+            _passwordService.VerifyPassword(command.Password, DummyHash);
             return Result<LoginResponse>.Unauthorized("Invalid email or password");
+        }
 
         if (!_passwordService.VerifyPassword(command.Password, user.PasswordHash))
             return Result<LoginResponse>.Unauthorized("Invalid email or password");

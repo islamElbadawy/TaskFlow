@@ -12,6 +12,12 @@ public class User : BaseEntity
     public UserRole Role { get; set; } = UserRole.User;
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Copied into every access token. Changing it (see <see cref="RevokeTokens"/>) makes every token issued
+    /// before the change invalid, so a password or role change takes effect immediately.</summary>
+    public Guid SecurityStamp { get; set; } = Guid.NewGuid();
+
+    /// <summary>Invalidates every access token this user holds; they must log in again.</summary>
+    public void RevokeTokens() => SecurityStamp = Guid.NewGuid();
 
     public ICollection<TaskItem> CreatedTasks { get; set; } = new List<TaskItem>();
     public ICollection<TaskItem> AssignedTasks { get; set; } = new List<TaskItem>();

@@ -6,6 +6,8 @@ namespace TaskFlow.Application.Commands.Users.DeleteUserCommand;
 
 public class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand, Result<bool>>
 {
+    public const string LastActiveAdminMessage = "Cannot delete the last active Admin";
+
     private IUnitOfWork _unitOfWork;
 
     public DeleteUserCommandHandler(IUnitOfWork unitOfWork)
@@ -19,6 +21,9 @@ public class DeleteUserCommandHandler : ICommandHandler<DeleteUserCommand, Resul
 
         if (user == null)
             return Result<bool>.NotFound("User not found");
+
+        if (await _unitOfWork.Users.IsLastActiveAdminAsync(user, cancellationToken))
+            return Result<bool>.Conflict(LastActiveAdminMessage);
 
         // Check if user has created tasks
         var hasCreatedTasks = await _unitOfWork.TasksItems
