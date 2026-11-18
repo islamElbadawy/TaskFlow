@@ -69,6 +69,21 @@ public class Repository<T> : IRepository<T> where T : class
         return await _dbSet.AnyAsync(predicate, cancellationToken);
     }
 
+    public virtual async Task<IReadOnlyDictionary<TKey, int>> CountByAsync<TKey>(
+        Expression<Func<T, bool>>? filter,
+        Expression<Func<T, TKey>> keySelector,
+        CancellationToken cancellationToken = default) where TKey : notnull
+    {
+        IQueryable<T> query = _dbSet.AsNoTracking();
+        if (filter is not null)
+            query = query.Where(filter);
+
+        return await query
+            .GroupBy(keySelector)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
+    }
+
     public virtual async Task<IReadOnlyList<TResult>> ListAsync<TResult>(
         Expression<Func<T, bool>>? filter,
         Expression<Func<T, TResult>> selector,

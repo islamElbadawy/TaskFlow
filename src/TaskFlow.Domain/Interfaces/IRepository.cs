@@ -15,6 +15,14 @@ public interface IRepository<T> where T : class
     Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Row counts per key in one <c>GROUP BY</c> query, e.g. tasks per status. Keys without rows are absent.
+    /// </summary>
+    Task<IReadOnlyDictionary<TKey, int>> CountByAsync<TKey>(
+        Expression<Func<T, bool>>? filter,
+        Expression<Func<T, TKey>> keySelector,
+        CancellationToken cancellationToken = default) where TKey : notnull;
+
+    /// <summary>
     /// Read-only, projected query (no change tracking). Use it for reads that need only some columns
     /// or data from related entities, e.g. <c>t =&gt; new { t.Title, CreatedByName = t.CreatedBy.FirstName }</c>.
     /// </summary>

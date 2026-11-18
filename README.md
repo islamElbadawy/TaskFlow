@@ -25,15 +25,15 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 | **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
 | **Collaboration** | Comment threads on each task | ✅ |
 | **Awareness** | In-app notifications (real-time via SignalR) + email alerts | 🟡 notifications automatic + live; email planned |
-| **Oversight** | Dashboard with stats (total/todo/in-progress/done/overdue) and "my tasks" | ⏳ |
+| **Oversight** | Dashboard: tasks by status, overdue, due within 7 days; my assigned/created tasks, unread notifications, recent tasks | ✅ |
 | **Access Control** | Role-based authorization; users manage only their own account, Admins manage everyone | ✅ |
 
 ### Example User Journey
 1. Manager logs in → gets a JWT token
 2. Manager creates a task and assigns it to a team member
 3. Team member lists their tasks (`GET /api/tasks?assignedToId=…`) and sees what's overdue
-4. *(planned)* Team member gets a notification, moves the task to `InProgress`, adds comments
-5. *(planned)* Manager checks the Dashboard for overall progress and overdue items
+4. Team member gets a notification (live over SignalR), moves the task to `InProgress`, adds comments
+5. Manager checks the Dashboard (`GET /api/dashboard`) for overall progress and overdue items
 
 ---
 
@@ -169,6 +169,7 @@ All endpoints except register/login need a `Bearer` token.
 | GET | `/api/notifications/unread-count` | logged in (own) | Number of unread notifications |
 | PATCH | `/api/notifications/{id}/read` | logged in (own) | Mark one as read (404 if not yours) |
 | POST | `/api/notifications/read-all` | logged in (own) | Mark all as read; returns how many changed |
+| GET | `/api/dashboard` | logged in | All tasks by status, overdue and due-within-7-days counts; your assigned tasks by status, open tasks you created, unread notifications, your 5 most recently updated tasks |
 | WS | `/hubs/notifications` | logged in | SignalR: receive `ReceiveNotification` live ([docs/REALTIME.md](docs/REALTIME.md)) |
 
 ### Responses and errors
@@ -209,11 +210,11 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Comments: list (paged), add, edit (author), delete (author or Admin) | ✅ Done |
 | Notifications API + automatic notifications on task/comment events (saved with the change) | ✅ Done |
 | SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
-| Dashboard | ⏳ Planned |
+| Dashboard (`GET /api/dashboard`, a handful of indexed count queries) | ✅ Done |
 | User activation / deactivation endpoint | ⏳ Planned |
 | Email alerts, deadline reminders | ⏳ Planned (MailKit referenced, no implementation) |
 | Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
-| Automated tests | 🟡 Integration test project (xUnit + Testcontainers PostgreSQL) with the first auth/users/tasks tests; grows with each feature |
+| Automated tests | ✅ 59 integration tests (xUnit + Testcontainers PostgreSQL): auth, users, tasks, lifecycle, comments, notifications + SignalR, dashboard |
 
 ---
 

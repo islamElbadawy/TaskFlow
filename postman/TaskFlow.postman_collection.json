@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TaskFlow API",
-    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
+    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates, and so does folder 8.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "protocolProfileBehavior": {
@@ -106,6 +106,42 @@
     },
     {
       "key": "secondNotificationId",
+      "value": ""
+    },
+    {
+      "key": "overdueListCount",
+      "value": ""
+    },
+    {
+      "key": "dashEmail",
+      "value": ""
+    },
+    {
+      "key": "dashUserId",
+      "value": ""
+    },
+    {
+      "key": "dashToken",
+      "value": ""
+    },
+    {
+      "key": "dashBefore",
+      "value": ""
+    },
+    {
+      "key": "dashPastDue",
+      "value": ""
+    },
+    {
+      "key": "dashSoonDue",
+      "value": ""
+    },
+    {
+      "key": "dashTaskId1",
+      "value": ""
+    },
+    {
+      "key": "dashTaskId2",
       "value": ""
     }
   ],
@@ -7274,6 +7310,782 @@
                 "api",
                 "users",
                 "{{notifyUserId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Dashboard",
+      "description": "GET /api/dashboard for the caller. `tasks`, `overdueTasks` and `dueSoonTasks` (next 7 days, not Done) cover every task; `myAssignedTasks`, `myOpenCreatedTasks`, `unreadNotifications` and `recentTasks` (5 most recently updated tasks the caller created or is assigned to) are personal. A throw-away user creates two tasks and checks the exact changes; nobody else is notified, and the tasks and the user are deleted at the end.",
+      "item": [
+        {
+          "name": "Without a token -> 401",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Seeded user: counts add up and include the overdue seed task",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"Total = Todo + InProgress + Done\", () => pm.expect(d.tasks.total).to.eql(d.tasks.todo + d.tasks.inProgress + d.tasks.done));",
+                  "pm.test(\"At least one overdue task (seed: Fix password reset email)\", () => pm.expect(d.overdueTasks).to.be.at.least(1));",
+                  "pm.test(\"Assigned: at least one Todo and one InProgress (seed)\", () => { pm.expect(d.myAssignedTasks.todo).to.be.at.least(1); pm.expect(d.myAssignedTasks.inProgress).to.be.at.least(1); });",
+                  "pm.test(\"1 to 5 recent tasks, latest change first\", () => {",
+                  "    pm.expect(d.recentTasks.length).to.be.at.least(1);",
+                  "    pm.expect(d.recentTasks.length <= 5).to.eql(true);",
+                  "    const keys = d.recentTasks.map(t => new Date(t.updatedAt || t.createdAt).getTime());",
+                  "    pm.expect(keys).to.eql([...keys].sort((a, b) => b - a));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Overdue tasks in the list (count saved)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?overdue=true&pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks?overdue=true&pageSize=100"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const data = pm.response.json().data;",
+                  "pm.test(\"Includes \\\"Fix password reset email\\\"\", () => pm.expect(data.items.map(t => t.title)).to.include(\"Fix password reset email\"));",
+                  "pm.collectionVariables.set(\"overdueListCount\", data.totalCount);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard overdue = list count",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Same count\", () => pm.expect(pm.response.json().data.overdueTasks).to.eql(Number(pm.collectionVariables.get(\"overdueListCount\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register a throw-away user",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Dashboard\",\n  \"lastName\": \"Tester\",\n  \"email\": \"{{dashEmail}}\",\n  \"password\": \"P@ssw0rd123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"dashEmail\", \"postman.dashboard.\" + Date.now() + \"@taskflow.dev\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"dashUserId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as the throw-away user",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{dashEmail}}\",\n  \"password\": \"P@ssw0rd123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"dashToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A new user's personal section is empty (all-task counts saved)",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"Nothing assigned or created\", () => { pm.expect(d.myAssignedTasks).to.eql({ total: 0, todo: 0, inProgress: 0, done: 0 }); pm.expect(d.myOpenCreatedTasks).to.eql(0); });",
+                  "pm.test(\"No unread notifications, no recent tasks\", () => { pm.expect(d.unreadNotifications).to.eql(0); pm.expect(d.recentTasks).to.be.empty; });",
+                  "pm.collectionVariables.set(\"dashBefore\", JSON.stringify({ total: d.tasks.total, todo: d.tasks.todo, done: d.tasks.done, overdue: d.overdueTasks, dueSoon: d.dueSoonTasks }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create an overdue task assigned to yourself",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: dashboard overdue\",\n  \"description\": \"\",\n  \"priority\": \"High\",\n  \"dueDate\": \"{{dashPastDue}}\",\n  \"assignedToId\": \"{{dashUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"dashPastDue\", new Date(Date.now() - 86400000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"dashTaskId1\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create a task due in 3 days",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: dashboard due soon\",\n  \"description\": \"\",\n  \"priority\": \"Low\",\n  \"dueDate\": \"{{dashSoonDue}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"dashSoonDue\", new Date(Date.now() + 3 * 86400000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"dashTaskId2\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard: +2 tasks, +1 overdue, +1 due soon",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const d = pm.response.json().data;",
+                  "const before = JSON.parse(pm.collectionVariables.get(\"dashBefore\"));",
+                  "pm.test(\"All tasks: +2 Todo\", () => { pm.expect(d.tasks.total).to.eql(before.total + 2); pm.expect(d.tasks.todo).to.eql(before.todo + 2); });",
+                  "pm.test(\"Overdue +1, due soon +1\", () => { pm.expect(d.overdueTasks).to.eql(before.overdue + 1); pm.expect(d.dueSoonTasks).to.eql(before.dueSoon + 1); });",
+                  "pm.test(\"Assigned to me: 1 Todo; created open: 2\", () => { pm.expect(d.myAssignedTasks).to.eql({ total: 1, todo: 1, inProgress: 0, done: 0 }); pm.expect(d.myOpenCreatedTasks).to.eql(2); });",
+                  "pm.test(\"Recent: newest first\", () => pm.expect(d.recentTasks.map(t => t.id)).to.eql([pm.collectionVariables.get(\"dashTaskId2\"), pm.collectionVariables.get(\"dashTaskId1\")]));",
+                  "pm.test(\"Recent rows are list items\", () => { const t = d.recentTasks[1]; pm.expect(t.isOverdue).to.eql(true); pm.expect(t.assignedToName).to.eql(\"Dashboard Tester\"); pm.expect(t).to.not.have.property(\"description\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark the due-soon task Done",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{dashTaskId2}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{dashTaskId2}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard: a Done task leaves due soon and created open",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const d = pm.response.json().data;",
+                  "const before = JSON.parse(pm.collectionVariables.get(\"dashBefore\"));",
+                  "pm.test(\"Done +1, due soon back to before\", () => { pm.expect(d.tasks.done).to.eql(before.done + 1); pm.expect(d.dueSoonTasks).to.eql(before.dueSoon); });",
+                  "pm.test(\"Created open: 1; the changed task is the most recent\", () => { pm.expect(d.myOpenCreatedTasks).to.eql(1); pm.expect(d.recentTasks[0].id).to.eql(pm.collectionVariables.get(\"dashTaskId2\")); pm.expect(d.recentTasks[0].status).to.eql(\"Done\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete the overdue task",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{dashTaskId1}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{dashTaskId1}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete the due-soon task",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dashToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{dashTaskId2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{dashTaskId2}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Admin deletes the throw-away user",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{dashUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{dashUserId}}"
               ]
             }
           },
