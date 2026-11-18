@@ -123,6 +123,7 @@ What each role can do with the current endpoints:
 | Edit a comment | `PUT /api/comments/{id}` | own comments only | own comments only (an Admin can't edit others' words) |
 | Delete a comment | `DELETE /api/comments/{id}` | own comments only | any comment (moderation) |
 | Notifications: list, unread count, mark read, read all | `/api/notifications…` | own notifications only | own notifications only |
+| Dashboard | `GET /api/dashboard` | all-task counts + own personal section | same |
 
 ### 3.2 Tasks
 
@@ -359,14 +360,36 @@ and how to receive them live over SignalR (with a JavaScript client example): [R
 Note that the PowerShell example marks Sam's seeded notification as read; reset the database (section 6) to get
 the seed state back.
 
-### 4.9 Postman collection
+### 4.9 Dashboard
+
+```powershell
+(Invoke-RestMethod "$api/api/dashboard" -Headers (Auth $user)).data | ConvertTo-Json -Depth 4
+```
+
+On a freshly seeded database, Regular User gets (seed due dates are relative to when the seed ran, so the
+overdue and due-soon numbers shift as days pass):
+
+| Field | Value | Meaning |
+|---|---|---|
+| `tasks` | `{ total: 8, todo: 3, inProgress: 3, done: 2 }` | every task, by status (any user may list all tasks) |
+| `overdueTasks` | 1 | past due and not Done: "Fix password reset email" |
+| `dueSoonTasks` | 3 | due within the next 7 days and not Done: "Review sprint backlog", "Write docs", "Migrate database to PostgreSQL" |
+| `myAssignedTasks` | `{ total: 2, todo: 1, inProgress: 1, done: 0 }` | assigned to the caller |
+| `myOpenCreatedTasks` | 1 | created by the caller and not Done ("Review sprint backlog") |
+| `unreadNotifications` | 2 | same as `GET /api/notifications/unread-count` |
+| `recentTasks` | Review sprint backlog, Write docs, Fix password reset email | up to 5 tasks the caller created or is assigned to, most recently updated (or created) first, as `TaskListDto` |
+
+The counts are computed in seven small queries (two `GROUP BY status`, four `COUNT`s, one page of 5 tasks) on indexed
+columns, so the dashboard stays cheap as the tables grow.
+
+### 4.10 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 132 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 147 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
 assign/unassign and delete with every permission case), comments (list, add, edit, delete) and notifications
-(automatic creation, list, unread count, mark read, read all).
+(automatic creation, list, unread count, mark read, read all) and the dashboard.
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -383,17 +406,17 @@ What a run does leave behind: the automatic notifications that folders 3, 5 and 
 accounts (Sam is assigned tasks, the Manager and Regular User get comment notifications on "Write docs";
 about 7 per run). They are history like any other notification. To remove them, delete the ones that are not
 seed rows, e.g. `DELETE FROM notifications WHERE id::text NOT LIKE 'e0000000-%';` (this also removes
-notifications from your own manual testing), or reset the database (section 6). Folder 7 works with its own
-throw-away user and leaves nothing.
+notifications from your own manual testing), or reset the database (section 6). Folders 7 and 8 work with their own
+throw-away users and leave nothing.
 
-### 4.10 Automated integration tests
+### 4.11 Automated integration tests
 
 `dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
 throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
 memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
 development database on port 5433 is never touched; the container is removed afterwards.
 
-### 4.11 bash / curl equivalent
+### 4.12 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
