@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TaskFlow API",
-    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates, and so does folder 8. Folder 9 deactivates and reactivates accounts (including the seeded inactive one) and restores their original state.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
+    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates, and so does folder 8. Folder 9 deactivates and reactivates accounts (including the seeded inactive one) and restores their original state. Folder 10 runs the deadline reminders with its own throw-away user and deletes its tasks and user; a run also reminds other tasks due within 24 h (seed tasks included), and those reminders stay.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "protocolProfileBehavior": {
@@ -158,6 +158,30 @@
     },
     {
       "key": "inactiveToken",
+      "value": ""
+    },
+    {
+      "key": "reminderEmail",
+      "value": ""
+    },
+    {
+      "key": "reminderUserId",
+      "value": ""
+    },
+    {
+      "key": "reminderToken",
+      "value": ""
+    },
+    {
+      "key": "reminderDue",
+      "value": ""
+    },
+    {
+      "key": "reminderTaskId",
+      "value": ""
+    },
+    {
+      "key": "reminderDoneTaskId",
       "value": ""
     }
   ],
@@ -9274,6 +9298,729 @@
                   "    pm.expect(json.title).to.eql(\"Unauthorized\");",
                   "    pm.expect(json.detail).to.eql(\"Invalid email or password\");",
                   "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Deadline reminders",
+      "description": "POST /api/reminders/run (Admin) runs the deadline reminders now; the background job runs the same logic every Reminders:IntervalMinutes. Tasks due within 24 h, not Done and assigned to an active user get one DeadlineApproaching notification per due date (also emailed when Smtp:Enabled is true). A throw-away user gets two tasks due in 3 hours; the tasks and the user are deleted at the end. A run also reminds any other task that is due soon (seed tasks included).",
+      "item": [
+        {
+          "name": "Manager -> 403 (Admin only)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reminders/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reminders",
+                "run"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"ProblemDetails body\", () => {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+                  "    pm.expect(pm.response.json().status).to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Without a token -> 401",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reminders/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reminders",
+                "run"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register a throw-away user",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Reminder\",\n  \"lastName\": \"Tester\",\n  \"email\": \"{{reminderEmail}}\",\n  \"password\": \"P@ssw0rd123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"reminderEmail\", \"postman.reminders.\" + Date.now() + \"@taskflow.dev\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"reminderUserId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Log in as the throw-away user (token saved)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{reminderEmail}}\",\n  \"password\": \"P@ssw0rd123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"reminderToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin creates a task due in 3 hours, assigned to them",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: reminder due soon\",\n  \"description\": \"Deadline reminder check\",\n  \"priority\": \"High\",\n  \"dueDate\": \"{{reminderDue}}\",\n  \"assignedToId\": \"{{reminderUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"reminderDue\", new Date(Date.now() + 3 * 3600 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"reminderTaskId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin creates a second one",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: reminder done\",\n  \"description\": \"Deadline reminder check\",\n  \"priority\": \"High\",\n  \"dueDate\": \"{{reminderDue}}\",\n  \"assignedToId\": \"{{reminderUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"reminderDue\", new Date(Date.now() + 3 * 3600 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.collectionVariables.set(\"reminderDoneTaskId\", pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "The second task is marked Done (Done tasks get no reminder)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{reminderDoneTaskId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{reminderDoneTaskId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin runs the reminders: our open task is reminded",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reminders/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reminders",
+                "run"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const r = pm.response.json().data;",
+                  "pm.test(\"remindersCreated = taskIds.length\", () => pm.expect(r.remindersCreated).to.eql(r.taskIds.length));",
+                  "pm.test(\"Includes our task\", () => pm.expect(r.taskIds).to.include(pm.collectionVariables.get(\"reminderTaskId\")));",
+                  "pm.test(\"Not the Done task\", () => pm.expect(r.taskIds).to.not.include(pm.collectionVariables.get(\"reminderDoneTaskId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "The assignee has the reminder",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reminderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?pageSize=100"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const mine = pm.response.json().data.items.filter(n => n.type === \"DeadlineApproaching\" && n.relatedTaskId === pm.collectionVariables.get(\"reminderTaskId\"));",
+                  "pm.test(\"1 reminder for the task\", () => pm.expect(mine.length).to.eql(1));",
+                  "pm.test(\"Message says when it is due\", () => pm.expect(mine[0].message).to.eql('\"Postman: reminder due soon\" is due in 2 hours'));",
+                  "pm.test(\"Unread\", () => pm.expect(mine[0].isRead).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Running again reminds nobody twice",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reminders/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reminders",
+                "run"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const r = pm.response.json().data;",
+                  "pm.test(\"remindersCreated = taskIds.length\", () => pm.expect(r.remindersCreated).to.eql(r.taskIds.length));",
+                  "pm.test(\"Doesn't include our task\", () => pm.expect(r.taskIds).to.not.include(pm.collectionVariables.get(\"reminderTaskId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Still one reminder for the task",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{reminderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications?pageSize=100"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const mine = pm.response.json().data.items.filter(n => n.type === \"DeadlineApproaching\" && n.relatedTaskId === pm.collectionVariables.get(\"reminderTaskId\"));",
+                  "pm.test(\"1 reminder for the task\", () => pm.expect(mine.length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Admin deletes the reminded task",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{reminderTaskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{reminderTaskId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Admin deletes the Done task",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{reminderDoneTaskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{reminderDoneTaskId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Admin deletes the throw-away user (and their notifications)",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{reminderUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{reminderUserId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
                 ]
               }
             }
