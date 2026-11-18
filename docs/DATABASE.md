@@ -113,6 +113,7 @@ What each role can do with the current endpoints:
 | List users, get a user, get me | `GET /api/users`, `GET /api/users/{id}`, `GET /api/users/me` | yes | yes |
 | Update a user's name/email | `PUT /api/users/{id}` | **own account only** (others → 403) | any account |
 | Change a role | `PUT /api/users/{id}/role` | 403 | yes (the last admin can't be demoted) |
+| Deactivate / reactivate a user | `PATCH /api/users/{id}/active` | 403 | yes (not themselves, not the last active Admin) |
 | Delete a user | `DELETE /api/users/{id}` | own account only | any account (fails if the user created tasks) |
 | List tasks (filters, paging), get a task | `GET /api/tasks`, `GET /api/tasks/{id}` | yes (all tasks) | yes |
 | Create a task | `POST /api/tasks` | yes | yes |
@@ -194,11 +195,11 @@ A successful response is `Result<T>`: `{ "isSuccess": true, "data": { ... } }` w
 ProblemDetails (`application/problem+json`) with the status code of the error, `title` = error type and
 `detail` = message, e.g. `{ "title": "NotFound", "status": 404, "detail": "Task not found", ... }`:
 400 `Validation` (validator failures also list the fields in `errors`), 401 `Unauthorized` (no/invalid token,
-failed login), 403 `Forbidden`, 404 `NotFound`, 409 `Conflict` (duplicate email, deleting a user who created
-tasks, demoting the last Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
+the token of a deactivated or deleted user, failed login), 403 `Forbidden`, 404 `NotFound`, 409 `Conflict` (duplicate email, deleting a user who created
+tasks, demoting the last Admin, deactivating yourself or the last active Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
 for these; the body is in `$_.ErrorDetails.Message`.
 
-### 4.2 The inactive account can't log in
+### 4.2 The inactive account can't log in (activation)
 
 ```powershell
 Login "inactive@taskflow.dev"
@@ -206,8 +207,25 @@ Login "inactive@taskflow.dev"
 ```
 
 The message is the same as for a wrong password or an unknown email, so the API doesn't reveal that the
-account exists. Reactivate it in psql (`UPDATE users SET is_active = true WHERE email = 'inactive@taskflow.dev';`)
-and the same login succeeds.
+account exists. An Admin can reactivate it, and deactivate it again:
+
+```powershell
+function Auth($session) { @{ Authorization = "Bearer $($session.token)" } }   # also used from 4.3 on
+$inactiveId = "55555555-5555-5555-5555-555555555555"
+$on  = @{ isActive = $true }  | ConvertTo-Json
+$off = @{ isActive = $false } | ConvertTo-Json
+Invoke-RestMethod "$api/api/users/$inactiveId/active" -Method Patch -Headers (Auth $admin) -ContentType "application/json" -Body $on
+$s = Login "inactive@taskflow.dev"                                    # works now
+Invoke-RestMethod "$api/api/users/$inactiveId/active" -Method Patch -Headers (Auth $admin) -ContentType "application/json" -Body $off
+Invoke-RestMethod "$api/api/users/me" -Headers (Auth $s)             # -> 401: the token it got a moment ago is rejected
+(Invoke-RestMethod "$api/api/users?isActive=false" -Headers (Auth $admin)).data | Format-Table email, isActive
+```
+
+Deactivation takes effect immediately: besides the login check, every authenticated request (SignalR connections
+included) looks up `users.is_active` for the token's user by primary key and answers 401 if the account is inactive
+or deleted. An already open SignalR connection stays open until it reconnects. Role changes are *not* re-checked
+per request: the role comes from the token until the user logs in again. An Admin can't deactivate their own
+account, and the last active Admin can't be deactivated (409).
 
 ### 4.3 403 vs 200: who may edit whom
 
@@ -385,11 +403,12 @@ columns, so the dashboard stays cheap as the tables grow.
 ### 4.10 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 147 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 168 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
 assign/unassign and delete with every permission case), comments (list, add, edit, delete) and notifications
-(automatic creation, list, unread count, mark read, read all) and the dashboard.
+(automatic creation, list, unread count, mark read, read all), the dashboard and user activation (including the
+401 for a deactivated user's existing token).
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -407,7 +426,8 @@ accounts (Sam is assigned tasks, the Manager and Regular User get comment notifi
 about 7 per run). They are history like any other notification. To remove them, delete the ones that are not
 seed rows, e.g. `DELETE FROM notifications WHERE id::text NOT LIKE 'e0000000-%';` (this also removes
 notifications from your own manual testing), or reset the database (section 6). Folders 7 and 8 work with their own
-throw-away users and leave nothing.
+throw-away users and leave nothing. Folder 9 activates and then deactivates `inactive@taskflow.dev` again,
+so its `is_active` ends as seeded (only its `updated_at` changes).
 
 ### 4.11 Automated integration tests
 

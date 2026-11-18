@@ -20,7 +20,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 
 | Capability | Description | State |
 |---|---|---|
-| **User Accounts** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Deactivated accounts can't log in | ✅ |
+| **User Accounts** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Admins can deactivate accounts: no login, and existing tokens stop working | ✅ |
 | **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task permissions | ✅ |
 | **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
 | **Collaboration** | Comment threads on each task | ✅ |
@@ -61,7 +61,8 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 - Full guide: **[docs/DATABASE.md](docs/DATABASE.md)**
 
 ### Security
-- **JWT Bearer** authentication (self-issued; signing key in user-secrets)
+- **JWT Bearer** authentication (self-issued; signing key in user-secrets); every authenticated request also checks
+  that the user still exists and is active (one primary-key lookup), so deactivation takes effect immediately
 - **BCrypt** password hashing
 - Role-based (`[Authorize(Roles = "Admin")]`) and ownership checks in controllers
 
@@ -148,11 +149,12 @@ All endpoints except register/login need a `Bearer` token.
 | POST | `/api/auth/register` | anyone | Create an account (role `User`) |
 | POST | `/api/auth/login` | anyone | Get a JWT (inactive accounts are rejected) |
 | POST | `/api/auth/change-password` | logged in | Change own password |
-| GET | `/api/users` | logged in | List users |
+| GET | `/api/users` | logged in | List users (each with `isActive`); `?isActive=true\|false` |
 | GET | `/api/users/me` | logged in | Current user |
 | GET | `/api/users/{id}` | logged in | One user |
 | PUT | `/api/users/{id}` | self or Admin | Update name/email |
 | PUT | `/api/users/{id}/role` | Admin | Change role (the last Admin can't be demoted) |
+| PATCH | `/api/users/{id}/active` | Admin | Deactivate `{ "isActive": false }` or reactivate `true` (not yourself, not the last active Admin) |
 | DELETE | `/api/users/{id}` | self or Admin | Delete (not if the user created tasks) |
 | GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; paging `page`, `pageSize` |
 | GET | `/api/tasks/{id}` | logged in | One task with names and comment count |
@@ -185,10 +187,10 @@ Success: `200` with `{ "isSuccess": true, "data": { ... } }`. Failure: an RFC 94
 | Status | `title` | When |
 |---|---|---|
 | 400 | `Validation` (or "One or more validation errors occurred." with an `errors` object per field) | Invalid input: validator errors, unknown priority/status/role, unknown assignee, wrong current password |
-| 401 | `Unauthorized` | Missing/invalid token; failed login (same message for unknown email, wrong password and inactive account) |
+| 401 | `Unauthorized` | Missing/invalid token, or the token of a deactivated/deleted user; failed login (same message for unknown email, wrong password and inactive account) |
 | 403 | `Forbidden` | Logged in but not allowed (e.g. a User editing another account, a non-Admin changing a role) |
 | 404 | `NotFound` | Unknown user or task |
-| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting the last Admin |
+| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting the last Admin, deactivating yourself or the last active Admin |
 | 500 | `Failure` | Unexpected error (logged; no internals in the response) |
 
 Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md).
@@ -203,7 +205,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | PostgreSQL + migrations + seed data (Docker Compose) | ✅ Done |
 | Repository / Unit of Work (cancellation, projections, paging, resilient transactions) | ✅ Done |
 | CQRS dispatchers, `Result<T>` with error types, FluentValidation | ✅ Done (dispatcher still uses reflection) |
-| Auth: register, login, change password, JWT, inactive-user check | ✅ Done |
+| Auth: register, login, change password, JWT, inactive-user check (at login and on every request) | ✅ Done |
 | Users: list, get, update, role change, delete with permission checks | ✅ Done |
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
 | Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
@@ -211,10 +213,10 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Notifications API + automatic notifications on task/comment events (saved with the change) | ✅ Done |
 | SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
 | Dashboard (`GET /api/dashboard`, a handful of indexed count queries) | ✅ Done |
-| User activation / deactivation endpoint | ⏳ Planned |
+| User activation / deactivation (`PATCH /api/users/{id}/active`, Admin) | ✅ Done |
 | Email alerts, deadline reminders | ⏳ Planned (MailKit referenced, no implementation) |
 | Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
-| Automated tests | ✅ 59 integration tests (xUnit + Testcontainers PostgreSQL): auth, users, tasks, lifecycle, comments, notifications + SignalR, dashboard |
+| Automated tests | ✅ 69 integration tests (xUnit + Testcontainers PostgreSQL): auth, users, user activation, tasks, lifecycle, comments, notifications + SignalR, dashboard |
 
 ---
 
@@ -237,7 +239,7 @@ https://localhost:7103/swagger
 ```
 
 Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`,
-`user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected).
+`user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected until an Admin reactivates it).
 
 ## 🧪 Testing
 
