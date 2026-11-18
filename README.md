@@ -24,7 +24,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 | **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task permissions | ✅ |
 | **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
 | **Collaboration** | Comment threads on each task | ✅ |
-| **Awareness** | In-app notifications (real-time via SignalR) + email alerts | 🟡 notifications automatic + live; email planned |
+| **Awareness** | In-app notifications (real-time via SignalR), email for assignments, deadline reminders a day before a task is due | ✅ |
 | **Oversight** | Dashboard: tasks by status, overdue, due within 7 days; my assigned/created tasks, unread notifications, recent tasks | ✅ |
 | **Access Control** | Role-based authorization; users manage only their own account, Admins manage everyone | ✅ |
 
@@ -34,6 +34,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 3. Team member lists their tasks (`GET /api/tasks?assignedToId=…`) and sees what's overdue
 4. Team member gets a notification (live over SignalR), moves the task to `InProgress`, adds comments
 5. Manager checks the Dashboard (`GET /api/dashboard`) for overall progress and overdue items
+6. Within 24 hours of the due date, the assignee gets a reminder, in the app and by email
 
 ---
 
@@ -69,6 +70,9 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 ### API, Real-time & Docs
 - **ASP.NET Core controllers**, **Swagger UI** (Swashbuckle) in Development
 - **SignalR** typed hub at `/hubs/notifications` (JWT via `access_token` query string), pushes `ReceiveNotification` to the user with `Clients.User` — see [docs/REALTIME.md](docs/REALTIME.md)
+- **Email** with MailKit: queued in memory and sent by a background service, so SMTP problems never fail a request;
+  [Mailpit](https://mailpit.axllent.org/) in Docker Compose catches the emails in development
+- **Deadline reminders**: a `BackgroundService` with `PeriodicTimer` (every 15 minutes, idempotent)
 - **Postman collection** with assertions: [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json)
 
 ---
@@ -87,6 +91,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 │ ApplicationDbContext, configurations,         │
 │ migrations, Repository/UnitOfWork, seeder,    │
 │ JWT / password / notification services        │
+│ email (MailKit), deadline reminder job        │
 └──────────────────────┬───────────────────────┘
                        │ implements ports of
 ┌──────────────────────▼───────────────────────┐
@@ -109,12 +114,12 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 src/
   TaskFlow.Domain/          Common/BaseEntity, Entities, Enums, Interfaces
   TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (dispatchers, results, ports)
-  TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/
+  TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/ (incl. Email/), BackgroundJobs/
   TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs
 docs/                       DATABASE.md (setup, seed data, testing), REALTIME.md (notifications, SignalR client), BUGFIXES.md
 postman/                    API test collection
 tests/                      TaskFlow.IntegrationTests (xUnit, WebApplicationFactory, Testcontainers)
-docker-compose.yml          Local PostgreSQL 17
+docker-compose.yml          Local PostgreSQL 17 and Mailpit (development mail catcher)
 ```
 
 ---
@@ -172,6 +177,7 @@ All endpoints except register/login need a `Bearer` token.
 | PATCH | `/api/notifications/{id}/read` | logged in (own) | Mark one as read (404 if not yours) |
 | POST | `/api/notifications/read-all` | logged in (own) | Mark all as read; returns how many changed |
 | GET | `/api/dashboard` | logged in | All tasks by status, overdue and due-within-7-days counts; your assigned tasks by status, open tasks you created, unread notifications, your 5 most recently updated tasks |
+| POST | `/api/reminders/run` | Admin | Run the deadline reminders now (the background job runs them every 15 minutes); returns the reminded task ids |
 | WS | `/hubs/notifications` | logged in | SignalR: receive `ReceiveNotification` live ([docs/REALTIME.md](docs/REALTIME.md)) |
 
 ### Responses and errors
@@ -214,9 +220,10 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
 | Dashboard (`GET /api/dashboard`, a handful of indexed count queries) | ✅ Done |
 | User activation / deactivation (`PATCH /api/users/{id}/active`, Admin) | ✅ Done |
-| Email alerts, deadline reminders | ⏳ Planned (MailKit referenced, no implementation) |
+| Email (task assigned, deadline reminder) with MailKit, Mailpit for development | ✅ Done |
+| Deadline reminders (background job + `POST /api/reminders/run`, one reminder per due date) | ✅ Done |
 | Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
-| Automated tests | ✅ 69 integration tests (xUnit + Testcontainers PostgreSQL): auth, users, user activation, tasks, lifecycle, comments, notifications + SignalR, dashboard |
+| Automated tests | ✅ 79 integration tests (xUnit + Testcontainers PostgreSQL and Mailpit): auth, users, user activation, tasks, lifecycle, comments, notifications + SignalR, dashboard, deadline reminders, email |
 
 ---
 
@@ -226,7 +233,7 @@ Prerequisites: .NET 10 SDK and Docker Desktop. Full setup, the seeded accounts/t
 and how to use them: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
 ```powershell
-# 1. Start PostgreSQL (first time: Copy-Item .env.example .env and set a password,
+# 1. Start PostgreSQL and Mailpit (first time: Copy-Item .env.example .env and set a password,
 #    then put the connection string and JWT secret in user-secrets, see docs/DATABASE.md)
 docker compose up -d
 
@@ -240,6 +247,9 @@ https://localhost:7103/swagger
 
 Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`,
 `user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected until an Admin reactivates it).
+
+Email is off by default. To see the emails, run with `--Smtp:Enabled=true` (or set it in user-secrets) and open
+Mailpit at http://localhost:8025; see [docs/DATABASE.md](docs/DATABASE.md#410-deadline-reminders-and-email).
 
 ## 🧪 Testing
 

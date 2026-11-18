@@ -2,7 +2,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Infrastructure.Data.Seeding;
 using Testcontainers.PostgreSql;
 
@@ -26,6 +30,9 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     public string ConnectionString => _database.GetConnectionString();
 
+    /// <summary>Every email the API "sent" (the SMTP queue is replaced by this fake).</summary>
+    public FakeEmailService Emails { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -37,12 +44,20 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["JwtSettings:Secret"] = TestJwtSecret,
             ["Seed:ResetDatabase"] = "false",
-            ["Seed:RunSmokeTestAndExit"] = "false"
+            ["Seed:RunSmokeTestAndExit"] = "false",
+            // Tests run the reminder logic themselves; a background run would add notifications at random moments.
+            ["Reminders:Enabled"] = "false"
         };
         foreach (var (key, value) in settings)
             builder.UseSetting(key, value);
 
         builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(settings));
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailService>();
+            services.AddSingleton<IEmailService>(Emails);
+        });
     }
 
     public async Task InitializeAsync() => await _database.StartAsync();

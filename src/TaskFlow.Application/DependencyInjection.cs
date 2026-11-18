@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TaskFlow.Application.Common.Dispatchers;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Notifications;
+using TaskFlow.Application.Common.Reminders;
 
 namespace TaskFlow.Application;
 
@@ -17,6 +18,9 @@ public static class DependencyInjection
 
         // Who gets notified about task/comment events (stages notifications for the handler's SaveChanges)
         services.AddScoped<TaskNotifications>();
+
+        // Deadline reminders (run by the background job and POST /api/reminders/run)
+        services.AddScoped<DeadlineReminderService>();
 
         // Auto-register all command handlers
         RegisterHandlers(services, typeof(ICommandHandler<,>));
