@@ -37,7 +37,7 @@ public sealed class UsersTests(TaskFlowApiFactory factory)
         var response = await client.PutAsJsonAsync($"/api/users/{DataSeeder.UserIds.Admin}/role",
             new { newRole = "User" });
 
-        await response.ShouldBeProblemAsync(HttpStatusCode.Conflict, "Conflict", "Cannot demote the last Admin");
+        await response.ShouldBeProblemAsync(HttpStatusCode.Conflict, "Conflict", "Cannot demote the last active Admin");
     }
 
     [Fact]

@@ -1037,7 +1037,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "// Changing the password revoked the old token: later requests use this one.",
+                  "pm.collectionVariables.set(\"newUserToken\", pm.response.json().data.token);"
                 ]
               }
             }
@@ -1824,10 +1826,10 @@
                   "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
                   "    pm.expect(pm.response.json().status).to.eql(409);",
                   "});",
-                  "pm.test(\"Problem: Conflict - Cannot demote the last Admin\", () => {",
+                  "pm.test(\"Problem: Conflict - Cannot demote the last active Admin\", () => {",
                   "    const json = pm.response.json();",
                   "    pm.expect(json.title).to.eql(\"Conflict\");",
-                  "    pm.expect(json.detail).to.eql(\"Cannot demote the last Admin\");",
+                  "    pm.expect(json.detail).to.eql(\"Cannot demote the last active Admin\");",
                   "});"
                 ]
               }

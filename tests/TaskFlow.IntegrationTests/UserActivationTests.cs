@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using TaskFlow.Application.Commands.Users.SetUserActiveCommand;
+using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Results;
+using TaskFlow.Domain.Enums;
+using TaskFlow.Domain.Interfaces;
 using TaskFlow.Infrastructure.Data.Context;
 using TaskFlow.Infrastructure.Data.Seeding;
 using TaskFlow.IntegrationTests.Infrastructure;
@@ -67,25 +72,21 @@ public sealed class UserActivationTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task The_last_active_admin_cannot_be_deactivated_409()
     {
-        // Reach the rule with a second admin whose role was taken away after they logged in: role claims live in the
-        // token (only is_active is checked per request), so their token still passes [Authorize(Roles = "Admin")].
-        var admin = await factory.LoginAsync(SeedUsers.Admin);
-        var former = await factory.RegisterAsync("Felix");
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{former.Id}/role", new { newRole = "Admin" })).StatusCode);
-        var formerAdmin = await factory.LoginAsync(former.Email, TestUser.Password);
-        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/users/{former.Id}/role", new { newRole = "User" })).StatusCode);
+        // Through the API the acting Admin is always a second active Admin (and a demoted Admin's token is revoked),
+        // so the rule is a safety net for races. Run the handler directly with an actor that isn't an active Admin.
+        using var scope = factory.Services.CreateScope();
+        var handler = new SetUserActiveCommandHandler(scope.ServiceProvider.GetRequiredService<IUnitOfWork>(),
+            new FixedCurrentUser(Guid.NewGuid(), UserRole.Admin));
 
-        try
-        {
-            var response = await SetActiveAsync(formerAdmin, AdminId, false);
+        var result = await handler.HandleAsync(new SetUserActiveCommand { UserId = AdminId, IsActive = false });
 
-            await response.ShouldBeProblemAsync(HttpStatusCode.Conflict, "Conflict", "Cannot deactivate the last active Admin");
-        }
-        finally
-        {
-            await SetActiveInDatabaseAsync(AdminId, true);
-        }
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+        Assert.Equal(SetUserActiveCommandHandler.LastActiveAdminMessage, result.ErrorMessage);
+        Assert.True((await GetUserAsync(await factory.LoginAsync(SeedUsers.User), AdminId)).IsActive);
     }
+
+    private sealed record FixedCurrentUser(Guid? UserId, UserRole? Role) : ICurrentUserService;
 
     // ---- deactivate / reactivate ----
 

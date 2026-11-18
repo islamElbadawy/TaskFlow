@@ -42,6 +42,7 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpPost("change-password")]
+    [EnableRateLimiting(RateLimiting.AuthPolicy)]   // it checks the current password, so it is a guessing target too
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         var userId = _currentUserService.UserId;

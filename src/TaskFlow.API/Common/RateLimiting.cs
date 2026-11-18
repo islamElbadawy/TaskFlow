@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace TaskFlow.API.Common;
 
 /// <summary>
-/// Rate limits. <see cref="AuthPolicy"/> protects login and register against password guessing and mass sign-ups:
+/// Rate limits. <see cref="AuthPolicy"/> protects login, register and change-password against password guessing and mass sign-ups:
 /// a fixed window per client IP, sized by <c>RateLimiting:Auth:PermitLimit</c> (default 10) requests per
 /// <c>RateLimiting:Auth:WindowSeconds</c> (default 60). A rejected request gets 429 with a Retry-After header and a
 /// ProblemDetails body. Behind a reverse proxy, configure forwarded headers so the client IP is the real one.
