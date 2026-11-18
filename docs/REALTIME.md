@@ -64,8 +64,8 @@ A notification (list item, PATCH response and push payload):
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${api}/hubs/notifications`, {
         accessTokenFactory: () => token,
-        // The API's CORS policy currently allows any origin, which browsers refuse for credentialed requests.
-        // The token is sent in the query string, so cookies aren't needed.
+        // The page's origin must be listed in Cors:AllowedOrigins (the policy allows credentials). The token is
+        // sent in the query string, so cookies aren't needed either way.
         withCredentials: false,
       })
       .withAutomaticReconnect()

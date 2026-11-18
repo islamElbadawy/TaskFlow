@@ -76,6 +76,15 @@ In the **Development** environment, startup:
 
 Swagger UI: <https://localhost:7103/swagger> (or <http://localhost:5078/swagger>).
 
+Settings you may want to change (appsettings.json, appsettings.Development.json, user-secrets or `--Key=value`):
+
+| Setting | Default | Development | Meaning |
+|---|---|---|---|
+| `Cors:AllowedOrigins` | none | `http://localhost:3000`, `:4200`, `:5173` | Browser origins that may call the API and the SignalR hub (with credentials) |
+| `RateLimiting:Auth:PermitLimit` | `10` | `100` | Logins + registrations per client IP per window; more get 429 |
+| `RateLimiting:Auth:WindowSeconds` | `60` | `60` | Length of that window |
+| `Reminders:*`, `Smtp:*` | see section 4.10 | | Deadline reminders and email |
+
 Outside Development nothing is migrated or seeded automatically. Apply migrations explicitly instead:
 
 ```powershell
@@ -195,7 +204,7 @@ $admin.user          # id, name, role, createdAt
 A successful response is `Result<T>`: `{ "isSuccess": true, "data": { ... } }` with HTTP 200. A failure is an RFC 9457
 ProblemDetails (`application/problem+json`) with the status code of the error, `title` = error type and
 `detail` = message, e.g. `{ "title": "NotFound", "status": 404, "detail": "Task not found", ... }`:
-400 `Validation` (validator failures also list the fields in `errors`), 401 `Unauthorized` (no/invalid token,
+400 `Validation` (validator and binding failures also list the fields in `errors`), 401 `Unauthorized` (no/invalid token,
 the token of a deactivated or deleted user, failed login), 403 `Forbidden`, 404 `NotFound`, 409 `Conflict` (duplicate email, deleting a user who created
 tasks, demoting the last Admin, deactivating yourself or the last active Admin), 500 `Failure` (unexpected, logged). In PowerShell, `Invoke-RestMethod` throws
 for these; the body is in `$_.ErrorDetails.Message`.
@@ -589,4 +598,6 @@ Keep the tools in step with the runtime: `dotnet tool update -g dotnet-ef --vers
 | `Cannot write DateTime with Kind=Local ...` | Shouldn't happen (a converter normalizes every `DateTime` to UTC); if you add raw SQL, pass UTC values. |
 | No emails in Mailpit | Email is off by default: run with `--Smtp:Enabled=true`. Check that Mailpit runs (`docker compose up -d mailpit`) and look for `Sending the email ... failed` in the API log. |
 | A seed record you deleted came back | Expected: the seeder restores missing seed records on every Development start. |
+| `429 Too Many Requests` on login or register | The per-IP limit (`RateLimiting:Auth`) was reached: wait for the `Retry-After` seconds, or raise `PermitLimit` for local testing. |
+| A browser front end gets CORS errors | Add its origin (scheme, host and port) to `Cors:AllowedOrigins`. |
 | `The Entity Framework tools version '10.0.2' is older than that of the runtime` | Harmless warning; update with the command in section 7. |
