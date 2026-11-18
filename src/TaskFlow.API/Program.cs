@@ -1,7 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
 using TaskFlow.Infrastructure;
