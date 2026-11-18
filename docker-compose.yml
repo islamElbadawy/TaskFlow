@@ -1,4 +1,4 @@
-# Local PostgreSQL for TaskFlow development.
+# Local PostgreSQL and a mail catcher for TaskFlow development.
 #   cp .env.example .env   (then set POSTGRES_PASSWORD)
 #   docker compose up -d
 # Host port 5433 on purpose: 5432 is already used by another PostgreSQL on this machine.
@@ -22,6 +22,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Catches every email the API sends (nothing leaves the machine). The API sends to localhost:1025 when
+  # Smtp:Enabled is true; read the emails at http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.33
+    container_name: taskflow-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   taskflow-pgdata:

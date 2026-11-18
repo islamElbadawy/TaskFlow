@@ -6,6 +6,7 @@ using TaskFlow.Domain.Interfaces;
 using TaskFlow.Infrastructure.Data.Context;
 using TaskFlow.Infrastructure.Data.Repositories;
 using TaskFlow.Infrastructure.Services;
+using TaskFlow.Infrastructure.Services.Email;
 
 namespace TaskFlow.Infrastructure;
 
@@ -32,6 +33,16 @@ public static class DependencyInjection
         services.AddScoped<TaskFlow.Application.Common.Interfaces.INotificationService, NotificationService>();
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        // Email: queued in memory and sent over SMTP by a background service; off unless Smtp:Enabled is true.
+        services.AddOptions<SmtpSettings>()
+            .BindConfiguration(SmtpSettings.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddSingleton<EmailQueue>();
+        services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<EmailQueue>());
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddHostedService<EmailDispatcher>();
 
 
         return services;
