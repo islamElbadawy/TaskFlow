@@ -46,38 +46,4 @@ public class JwtService : IJwtService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return (tokenHandler.WriteToken(token), expiresAt);
     }
-
-    public Guid? ValidateToken(string token)
-    {
-        if (string.IsNullOrEmpty(token))
-            return null;
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_jwtSettings.Secret);
-
-        try
-        {
-            tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = true,
-                ValidIssuer = _jwtSettings.Issuer,
-                ValidateAudience = true,
-                ValidAudience = _jwtSettings.Audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
-            }, out SecurityToken validatedToken);
-
-            var jwtToken = (JwtSecurityToken)validatedToken;
-            var userIdStr = jwtToken.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value;
-            if (Guid.TryParse(userIdStr, out var userId))
-                return userId;
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
 }

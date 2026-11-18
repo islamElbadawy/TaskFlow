@@ -28,10 +28,6 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
-    public string? UserEmail => User?.FindFirstValue(ClaimTypes.Email);
-
-    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
-
     public UserRole? Role =>
         Enum.TryParse<UserRole>(User?.FindFirstValue(ClaimTypes.Role), ignoreCase: false, out var role) && Enum.IsDefined(role)
             ? role
