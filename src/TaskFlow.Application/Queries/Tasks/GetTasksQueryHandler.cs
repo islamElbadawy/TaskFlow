@@ -47,41 +47,11 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
             descending: true,
             skip: (query.Page - 1) * query.PageSize,
             take: query.PageSize,
-            selector: t => new
-            {
-                t.Id,
-                t.Title,
-                t.Status,
-                t.Priority,
-                t.DueDate,
-                t.CreatedByUserId,
-                CreatedByName = t.CreatedBy.FirstName + " " + t.CreatedBy.LastName,
-                t.AssignedToUserId,
-                AssignedToName = t.AssignedTo != null ? t.AssignedTo.FirstName + " " + t.AssignedTo.LastName : null,
-                CommentsCount = t.Comments.Count,
-                t.CreatedAt,
-                t.UpdatedAt
-            },
+            selector: TaskProjections.ToListDto(now),
             cancellationToken);
-
-        var dtos = items.Select(t => new TaskListDto(
-            Id: t.Id,
-            Title: t.Title,
-            Status: t.Status.ToString(),
-            Priority: t.Priority.ToString(),
-            DueDate: t.DueDate,
-            IsOverdue: t.DueDate < now && t.Status != TaskItemStatus.Done,
-            CreatedById: t.CreatedByUserId,
-            CreatedByName: t.CreatedByName,
-            AssignedToId: t.AssignedToUserId,
-            AssignedToName: t.AssignedToName,
-            CommentsCount: t.CommentsCount,
-            CreatedAt: t.CreatedAt,
-            UpdatedAt: t.UpdatedAt
-        )).ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
         return Result<PaginatedList<TaskListDto>>.Success(
-            new PaginatedList<TaskListDto>(dtos, query.Page, query.PageSize, totalCount, totalPages));
+            new PaginatedList<TaskListDto>(items.ToList(), query.Page, query.PageSize, totalCount, totalPages));
     }
 }
