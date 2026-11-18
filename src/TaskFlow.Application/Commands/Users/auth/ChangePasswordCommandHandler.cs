@@ -26,9 +26,6 @@ public class ChangePasswordCommandHandler : ICommandHandler<ChangePassowrdComman
 
         if (!_passwordService.VerifyPassword(command.CurrentPassword, user.PasswordHash))  
             return Result<bool>.Validation("Current password is incorrect.");
-        
-        if(string.IsNullOrEmpty(command.NewPassword) || command.NewPassword.Length < 6)
-            return Result<bool>.Validation("New password must be at least 6 characters long.");
 
         user.PasswordHash = _passwordService.HashPassword(command.NewPassword);
 

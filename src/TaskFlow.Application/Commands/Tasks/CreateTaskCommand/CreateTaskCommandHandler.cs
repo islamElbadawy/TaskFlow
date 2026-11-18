@@ -21,9 +21,7 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
 
     public async Task<Result<TaskDto>> HandleAsync(CreateTaskCommand command, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.Title))
-            return Result<TaskDto>.Validation("Title is required");
-
+        // Required fields and lengths are checked by CreateTaskCommandValidator (run by the dispatcher).
         var createdBy = await _unitOfWork.Users.GetByIdAsync(command.CreatedById, cancellationToken);
         if (createdBy == null)
             return Result<TaskDto>.NotFound("Creator user not found");

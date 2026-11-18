@@ -31,9 +31,6 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
             return Result<TaskDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
-        if (string.IsNullOrWhiteSpace(command.Title))
-            return Result<TaskDto>.Validation("Title is required");
-
         // The validator rejects unknown names; never keep the old value silently for an invalid one.
         if (!Enum.TryParse<TaskItemStatus>(command.Status, true, out var status) || !Enum.IsDefined(status))
             return Result<TaskDto>.Validation("Status must be one of: Todo, InProgress, Done");
