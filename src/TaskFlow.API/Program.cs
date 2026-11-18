@@ -89,16 +89,15 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization();
 
 
-// Add CORS
-builder.Services.AddCors(options =>
+// CORS: browsers may call the API, and the SignalR hub (which sends credentials), only from the origins listed in
+// Cors:AllowedOrigins. appsettings.json lists none (no cross-origin access); Development allows local front-end ports.
+const string FrontendCorsPolicy = "Frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddPolicy(FrontendCorsPolicy, policy =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader();
-    });
-});
+    if (allowedOrigins.Length > 0)
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+}));
 
 builder.Services.AddApplication();
 
@@ -123,7 +122,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors(FrontendCorsPolicy);
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
