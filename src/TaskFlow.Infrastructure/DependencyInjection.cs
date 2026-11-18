@@ -2,7 +2,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Application.Common.Settings;
 using TaskFlow.Domain.Interfaces;
+using TaskFlow.Infrastructure.BackgroundJobs;
 using TaskFlow.Infrastructure.Data.Context;
 using TaskFlow.Infrastructure.Data.Repositories;
 using TaskFlow.Infrastructure.Services;
@@ -43,6 +45,13 @@ public static class DependencyInjection
         services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<EmailQueue>());
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddHostedService<EmailDispatcher>();
+
+        // Deadline reminders: a background job every Reminders:IntervalMinutes (on unless Reminders:Enabled is false).
+        services.AddOptions<ReminderSettings>()
+            .BindConfiguration(ReminderSettings.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddHostedService<DeadlineReminderWorker>();
 
 
         return services;

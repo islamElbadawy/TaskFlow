@@ -37,7 +37,9 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["JwtSettings:Secret"] = TestJwtSecret,
             ["Seed:ResetDatabase"] = "false",
-            ["Seed:RunSmokeTestAndExit"] = "false"
+            ["Seed:RunSmokeTestAndExit"] = "false",
+            // Tests run the reminder logic themselves; a background run would add notifications at random moments.
+            ["Reminders:Enabled"] = "false"
         };
         foreach (var (key, value) in settings)
             builder.UseSetting(key, value);
