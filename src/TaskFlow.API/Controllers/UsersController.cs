@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
+using TaskFlow.Application.Commands.Users.SetUserActiveCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserRoleCommand;
 using TaskFlow.Application.Common.Results;
@@ -72,6 +73,17 @@ public class UsersController : ControllerBase
     [HttpPut("{id}/role")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateUserRoleCommand command)
+    {
+        command.UserId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Admin only: <c>{ "isActive": false }</c> deactivates (login and existing tokens stop working),
+    /// <c>true</c> reactivates. 409 for your own account or the last active Admin; 404 unknown user.</summary>
+    [HttpPatch("{id:guid}/active")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> SetActive(Guid id, [FromBody] SetUserActiveCommand command)
     {
         command.UserId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
