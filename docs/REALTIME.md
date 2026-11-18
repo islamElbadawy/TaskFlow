@@ -12,6 +12,7 @@ to the recipient's open connections over SignalR. Clients read and manage them w
 | `PUT` that changes something | the assignee | `TaskUpdated` | Manager User updated "Write docs" |
 | `PATCH .../status` that changes the status | the assignee | `TaskUpdated` | Manager User moved "Write docs" to InProgress |
 | Comment added | the creator and the assignee | `CommentAdded` | Regular User commented on "Write docs" |
+| Task due within 24 hours, not Done (background job every 15 minutes, or `POST /api/reminders/run`) | the assignee, if active | `DeadlineApproaching` | "Write docs" is due in 5 hours |
 
 - The person who made the change is never notified.
 - Each user gets at most one notification per change. When several rules apply to the same person (e.g. they
@@ -19,7 +20,8 @@ to the recipient's open connections over SignalR. Clients read and manage them w
 - The notifications are saved in the same database transaction as the change. They are pushed only after the
   save succeeded; if a push fails it is logged, and the notification is still there for the REST API.
 - Deleting a task keeps its notifications (history) and clears their `relatedTaskId`.
-- `DeadlineApproaching` notifications come from the deadline reminder service (planned, Phase 6).
+- A deadline reminder is created once per assignee and due date (see DATABASE.md section 4.10).
+- `TaskAssigned` and `DeadlineApproaching` notifications are also emailed when `Smtp:Enabled` is true.
 
 ## REST API (always the caller's own notifications)
 

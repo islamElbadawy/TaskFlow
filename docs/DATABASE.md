@@ -57,6 +57,7 @@ docker compose ps             # wait until STATUS shows "(healthy)"
 ```
 
 The data lives in the Docker volume `taskflow_taskflow-pgdata`, so it survives `docker compose down` and restarts.
+The same command also starts Mailpit, the development mail catcher (section 4.10).
 
 ---
 
@@ -400,15 +401,63 @@ overdue and due-soon numbers shift as days pass):
 The counts are computed in seven small queries (two `GROUP BY status`, four `COUNT`s, one page of 5 tasks) on indexed
 columns, so the dashboard stays cheap as the tables grow.
 
-### 4.10 Postman collection
+### 4.10 Deadline reminders and email
+
+A background job runs at start and then every 15 minutes. Every task that is due within 24 hours, not Done and
+assigned to an active user gives its assignee a `DeadlineApproaching` notification, e.g.
+`"Review sprint backlog" is due in 13 hours` (pushed over SignalR like the others). The assignee gets one reminder per
+due date: later runs skip the task, but a new due date or a new assignee gets a new reminder. Overdue tasks get none
+(the dashboard shows them). An Admin can run the same logic at once:
+
+```powershell
+$sam = Login "user2@taskflow.dev"
+$due = (Get-Date).ToUniversalTime().AddHours(3).ToString("o")
+$body = @{ title = "Prepare the demo"; description = ""; priority = "High"; dueDate = $due; assignedToId = "44444444-4444-4444-4444-444444444444" } | ConvertTo-Json
+$t = (Invoke-RestMethod "$api/api/tasks" -Method Post -Headers (Auth $manager) -ContentType "application/json" -Body $body).data
+
+(Invoke-RestMethod "$api/api/reminders/run" -Method Post -Headers (Auth $admin)).data    # taskIds contains $t.id
+(Invoke-RestMethod "$api/api/notifications" -Headers (Auth $sam)).data.items | Select-Object -First 2 type, message
+# DeadlineApproaching "Prepare the demo" is due in 2 hours
+# TaskAssigned        Manager User assigned you "Prepare the demo"
+(Invoke-RestMethod "$api/api/reminders/run" -Method Post -Headers (Auth $admin)).data    # the task isn't reminded twice
+
+Invoke-RestMethod "$api/api/tasks/$($t.id)" -Method Delete -Headers (Auth $manager)    # clean up
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Reminders:Enabled` | `true` | Run the background job (`POST /api/reminders/run` works either way) |
+| `Reminders:IntervalMinutes` | `15` | Time between runs |
+| `Reminders:WindowHours` | `24` | How long before the due date a task is reminded |
+
+**Email.** `TaskAssigned` and `DeadlineApproaching` notifications are also emailed (plain text and HTML) to the
+recipient if the account is active; the other types stay in the app. Email is off by default (`Smtp:Enabled` is
+`false`). In development, the Mailpit container from `docker-compose.yml` catches every email on your machine:
+
+```powershell
+docker compose up -d mailpit                     # SMTP on localhost:1025, inbox at http://localhost:8025
+cd src\TaskFlow.API
+dotnet run --launch-profile https -- --Smtp:Enabled=true
+# or keep it on: dotnet user-secrets set "Smtp:Enabled" "true"
+```
+
+Assign a task or run the reminders, then open <http://localhost:8025>. Emails are queued in memory and sent by a
+background service, so a slow or unreachable SMTP server never delays or fails a request: a failure is logged
+(`Sending the email "..." failed`) and the notification is still stored. Emails still in the queue are lost if the API
+stops. For a real server set `Smtp:Host`, `Smtp:Port`, `Smtp:Security` (`Auto`, `StartTls`, `SslOnConnect` or `None`),
+`Smtp:FromAddress` and `Smtp:FromName`, and keep `Smtp:Username`/`Smtp:Password` in user-secrets or environment
+variables (`Smtp__Password`), never in appsettings.json. Invalid settings (e.g. a malformed `FromAddress`) stop the API
+at start.
+
+### 4.11 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 168 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 182 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
 assign/unassign and delete with every permission case), comments (list, add, edit, delete) and notifications
-(automatic creation, list, unread count, mark read, read all), the dashboard and user activation (including the
-401 for a deactivated user's existing token).
+(automatic creation, list, unread count, mark read, read all), the dashboard, user activation (including the
+401 for a deactivated user's existing token) and the deadline reminders.
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -427,16 +476,20 @@ about 7 per run). They are history like any other notification. To remove them, 
 seed rows, e.g. `DELETE FROM notifications WHERE id::text NOT LIKE 'e0000000-%';` (this also removes
 notifications from your own manual testing), or reset the database (section 6). Folders 7 and 8 work with their own
 throw-away users and leave nothing. Folder 9 activates and then deactivates `inactive@taskflow.dev` again,
-so its `is_active` ends as seeded (only its `updated_at` changes).
+so its `is_active` ends as seeded (only its `updated_at` changes). Folder 10 deletes its tasks and its throw-away user,
+but its reminder run also reminds any other task due within 24 hours (on a fresh seed, "Review sprint backlog" for the
+Manager), and those reminders stay.
 
-### 4.11 Automated integration tests
+### 4.12 Automated integration tests
 
 `dotnet test` (from the repository root, Docker running) runs `tests/TaskFlow.IntegrationTests`. It starts its own
 throw-away `postgres:17` container with Testcontainers, applies the migrations and this seed data, and runs the API in
 memory with a test JWT key. The connection string and JWT secret from your user-secrets are overridden, so the
-development database on port 5433 is never touched; the container is removed afterwards.
+development database on port 5433 is never touched; the container is removed afterwards. The test API records emails
+instead of sending them and switches the reminder job off (the tests run the reminders themselves); one test class
+sends real SMTP to a throw-away Mailpit container.
 
-### 4.12 bash / curl equivalent
+### 4.13 bash / curl equivalent
 
 ```bash
 TOKEN=$(curl -s http://localhost:5078/api/auth/login -H "Content-Type: application/json" \
@@ -534,5 +587,6 @@ Keep the tools in step with the runtime: `dotnet tool update -g dotnet-ef --vers
 | `port is already allocated` on 5433 | Something else uses 5433. Change the left side of `"5433:5432"` in `docker-compose.yml` and the `Port=` in your connection string. Don't use 5432. |
 | `ConnectionStrings:DefaultConnection is not configured` / `JwtSettings:Secret is missing` | Set the user-secrets (section 1.3); they're read only in the Development environment. |
 | `Cannot write DateTime with Kind=Local ...` | Shouldn't happen (a converter normalizes every `DateTime` to UTC); if you add raw SQL, pass UTC values. |
+| No emails in Mailpit | Email is off by default: run with `--Smtp:Enabled=true`. Check that Mailpit runs (`docker compose up -d mailpit`) and look for `Sending the email ... failed` in the API log. |
 | A seed record you deleted came back | Expected: the seeder restores missing seed records on every Development start. |
 | `The Entity Framework tools version '10.0.2' is older than that of the runtime` | Harmless warning; update with the command in section 7. |
