@@ -50,6 +50,7 @@ public class UpdateUserCommandHandler : ICommandHandler<UpdateUserCommand,Result
             FullName: $"{user.FirstName} {user.LastName}",
             Email: user.Email,
             Role: user.Role.ToString(),
+            IsActive: user.IsActive,
             CreatedAt: user.CreatedAt
         );
 

@@ -27,10 +27,11 @@ public class UsersController : ControllerBase
         _currentUserService = currentUserService;
     }
 
+    /// <summary>All users; <c>isActive=true|false</c> keeps only active or only deactivated accounts.</summary>
     [HttpGet()]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] GetAllUsersQuery query)
     {
-        var result = await _queryDispatcher.DispatchAsync(new GetAllUsersQuery(), HttpContext.RequestAborted);
+        var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
 

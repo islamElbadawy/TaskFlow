@@ -61,6 +61,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
             FullName: $"{user.FirstName} {user.LastName}",
             Email: user.Email,
             Role: user.Role.ToString(),
+            IsActive: user.IsActive,
             CreatedAt: user.CreatedAt
         );
 
