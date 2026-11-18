@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-using TaskFlow.Application.Common.Interfaces;
+﻿using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Domain.Entities;
@@ -26,9 +25,7 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
         RegisterUserCommand command, CancellationToken cancellationToken
     )
     {
-        if (string.IsNullOrWhiteSpace(command.Email))
-            return Result<UserDto>.Validation("Email is required");
-
+        // Required fields, email format and password length are checked by RegisterUserCommandValidator.
         var email = command.Email.Trim().ToLowerInvariant();
 
         var existingUser = await _unitOfWork.Users
@@ -36,10 +33,6 @@ public class RegisterUserCommandHandler : ICommandHandler<RegisterUserCommand, R
 
         if (existingUser != null)
             return Result<UserDto>.Conflict("Email already registered");
-
-        // Validate password
-        if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 6)
-            return Result<UserDto>.Validation("Password must be at least 6 characters");
 
         // Create user
         var user = new User

@@ -22,13 +22,7 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, Result<LoginRes
 
     public async Task<Result<LoginResponse>> HandleAsync(LoginCommand command, CancellationToken cancellationToken)
     {
-        // Validate input
-        if (string.IsNullOrWhiteSpace(command.Email))
-            return Result<LoginResponse>.Validation("Email is required");
-
-        if (string.IsNullOrWhiteSpace(command.Password))
-            return Result<LoginResponse>.Validation("Password is required");
-
+        // Email and password presence is checked by LoginCommandValidator (run by the dispatcher).
         var email = command.Email.Trim().ToLowerInvariant();
         var user = await _unitOfWork.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 

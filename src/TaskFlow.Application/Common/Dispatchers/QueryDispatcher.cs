@@ -1,9 +1,14 @@
-﻿using TaskFlow.Application.Common.Interfaces;
+﻿using System.Collections.Concurrent;
+using TaskFlow.Application.Common.Interfaces;
 
 namespace TaskFlow.Application.Common.Dispatchers;
 
-public class QueryDispatcher : IQueryDispatcher
+/// <summary>Validates a query with its FluentValidation validators (400 with the field errors when invalid), then
+/// runs its handler. Scoped: handlers and validators come from the request's scope.</summary>
+public sealed class QueryDispatcher : IQueryDispatcher
 {
+    private static readonly ConcurrentDictionary<(Type Query, Type Result), object> Wrappers = new();
+
     private readonly IServiceProvider _serviceProvider;
 
     public QueryDispatcher(IServiceProvider serviceProvider)
@@ -11,25 +16,14 @@ public class QueryDispatcher : IQueryDispatcher
         _serviceProvider = serviceProvider;
     }
 
-    public async Task<TResult> DispatchAsync<TResult>(
-        IQuery<TResult> query, CancellationToken cancellationToken = default
-    )
+    public Task<TResult> DispatchAsync<TResult>(IQuery<TResult> query, CancellationToken cancellationToken = default)
     {
-        var queryType = query.GetType();
-        var handlerType = typeof(IQueryHandler<,>).MakeGenericType(queryType, typeof(TResult));
+        ArgumentNullException.ThrowIfNull(query);
 
-        var handler = _serviceProvider.GetService(handlerType);
+        var wrapper = (QueryHandlerWrapper<TResult>)Wrappers.GetOrAdd((query.GetType(), typeof(TResult)),
+            static key => Activator.CreateInstance(
+                typeof(QueryHandlerWrapper<,>).MakeGenericType(key.Query, key.Result))!);
 
-        var handlerMethod = handlerType.GetMethod(nameof(IQueryHandler<IQuery<TResult>, TResult>.HandleAsync));
-
-        if (handlerMethod == null)
-            throw new InvalidOperationException($"Handler for {queryType.Name} not found");
-
-        var result = handlerMethod.Invoke(handler, new Object[] { query, cancellationToken });
-
-        if (result is Task<TResult> task)
-            return await task;
-
-        throw new InvalidOperationException($"Handler returned invalid result type");
+        return wrapper.HandleAsync(query, _serviceProvider, cancellationToken);
     }
 }

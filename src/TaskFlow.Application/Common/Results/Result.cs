@@ -28,6 +28,11 @@ public class Result<T>
     [JsonIgnore]
     public ErrorType ErrorType { get; private set; }
 
+    /// <summary>Field errors from the request validators (property name → messages); null for every other failure.
+    /// The API returns them as the <c>errors</c> object of a 400 ValidationProblemDetails.</summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, string[]>? ValidationErrors { get; private set; }
+
     public static Result<T> Success(T data)
     {
         return new Result<T>
@@ -61,6 +66,16 @@ public class Result<T>
 
     /// <summary>The input is invalid (400).</summary>
     public static Result<T> Validation(string message) => Failure(message, ErrorType.Validation);
+
+    /// <summary>The request validators rejected the input (400 with the field errors). Created by the dispatchers.</summary>
+    public static Result<T> ValidationFailed(IReadOnlyDictionary<string, string[]> errors) => new()
+    {
+        IsSuccess = false,
+        ErrorMessage = "One or more validation errors occurred.",
+        Errors = errors.Values.SelectMany(messages => messages).ToList(),
+        ErrorType = ErrorType.Validation,
+        ValidationErrors = errors
+    };
 
     /// <summary>The requested resource does not exist (404).</summary>
     public static Result<T> NotFound(string message) => Failure(message, ErrorType.NotFound);

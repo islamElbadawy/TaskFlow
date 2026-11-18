@@ -1,9 +1,14 @@
-﻿using TaskFlow.Application.Common.Interfaces;
+﻿using System.Collections.Concurrent;
+using TaskFlow.Application.Common.Interfaces;
 
 namespace TaskFlow.Application.Common.Dispatchers;
 
-public class CommandDispatcher : ICommandDispatcher
+/// <summary>Validates a command with its FluentValidation validators (400 with the field errors when invalid), then
+/// runs its handler. Scoped: handlers and validators come from the request's scope.</summary>
+public sealed class CommandDispatcher : ICommandDispatcher
 {
+    private static readonly ConcurrentDictionary<(Type Command, Type Result), object> Wrappers = new();
+
     private readonly IServiceProvider _serviceProvider;
 
     public CommandDispatcher(IServiceProvider serviceProvider)
@@ -11,25 +16,14 @@ public class CommandDispatcher : ICommandDispatcher
         _serviceProvider = serviceProvider;
     }
 
-    public async Task<TResult> DispatchAsync<TResult>(ICommand<TResult> command,
-        CancellationToken cancellationToken = default)
+    public Task<TResult> DispatchAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default)
     {
-        var commandType = command.GetType();
+        ArgumentNullException.ThrowIfNull(command);
 
-        var handlerType = typeof(ICommandHandler<,>).MakeGenericType(commandType, typeof(TResult));
+        var wrapper = (CommandHandlerWrapper<TResult>)Wrappers.GetOrAdd((command.GetType(), typeof(TResult)),
+            static key => Activator.CreateInstance(
+                typeof(CommandHandlerWrapper<,>).MakeGenericType(key.Command, key.Result))!);
 
-        var handler = _serviceProvider.GetService(handlerType);
-
-        var handlerMethod = handlerType.GetMethod(nameof(ICommandHandler<ICommand<TResult>, TResult>.HandleAsync));
-
-        if (handlerMethod == null)
-            throw new InvalidOperationException($"Handler for {commandType.Name} not found");
-
-        var result = handlerMethod.Invoke(handler, new Object[] { command, cancellationToken });
-
-        if (result is Task<TResult> task)
-            return await task;
-
-        throw new InvalidOperationException($"Handler returned invalid result type");
+        return wrapper.HandleAsync(command, _serviceProvider, cancellationToken);
     }
 }

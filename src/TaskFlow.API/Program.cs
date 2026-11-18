@@ -1,20 +1,31 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
 using TaskFlow.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using TaskFlow.API.Common;
 using TaskFlow.API.Hubs;
-using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    // Requests MVC can't bind (malformed JSON, wrong types, missing required fields) get the same shape as validator
+    // failures: 400 ValidationProblemDetails with title "Validation" and an errors object per field.
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problem = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>()
+            .CreateValidationProblemDetails(context.HttpContext, context.ModelState, StatusCodes.Status400BadRequest,
+                title: "Validation", detail: "One or more validation errors occurred.");
+        return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Errors: expected failures become ProblemDetails in the controllers (ResultExtensions), unexpected exceptions
@@ -78,22 +89,20 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization();
 
 
-// Add CORS
-builder.Services.AddCors(options =>
+// CORS: browsers may call the API, and the SignalR hub (which sends credentials), only from the origins listed in
+// Cors:AllowedOrigins. appsettings.json lists none (no cross-origin access); Development allows local front-end ports.
+const string FrontendCorsPolicy = "Frontend";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddPolicy(FrontendCorsPolicy, policy =>
 {
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader();
-    });
-});
+    if (allowedOrigins.Length > 0)
+        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+}));
+
+// Login and register: a fixed window per client IP (RateLimiting:Auth), 429 when exceeded.
+builder.Services.AddTaskFlowRateLimiting(builder.Configuration);
 
 builder.Services.AddApplication();
-
-// FluentValidation automatic model validation for controller input models
-// Requires FluentValidation.AspNetCore package. Validators are registered in the Application layer.
-builder.Services.AddFluentValidationAutoValidation();
 
 // Add Infrastructure Layer (Database, Repositories)
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -116,7 +125,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors(FrontendCorsPolicy);
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
