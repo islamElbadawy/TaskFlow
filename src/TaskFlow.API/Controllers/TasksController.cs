@@ -85,6 +85,17 @@ public class TasksController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    /// <summary>Body <c>{ "status": "Done", "beforeTaskId": "&lt;guid&gt;" }</c>: puts the task directly above
+    /// beforeTaskId in that column, or at the end when it is null. Creator, assignee, Manager or Admin; 400 when
+    /// beforeTaskId is the task itself or not in the target column.</summary>
+    [HttpPatch("{id:guid}/move")]
+    public async Task<IActionResult> Move(Guid id, [FromBody] MoveTaskCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
     /// <summary>Creator or Admin. Comments are deleted with the task; notifications stay, without the task link.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
