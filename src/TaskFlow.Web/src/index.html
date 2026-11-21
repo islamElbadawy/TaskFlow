@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>TaskFlow</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230d7a72'/%3E%3Cpath d='M9 22.5V9.5M16 22.5v-7M23 22.5v-3' stroke='white' stroke-width='3.6' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Arabic:wght@400;600;700&family=Readex+Pro:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        var theme = 'system';
+        var lang = 'en';
+        try {
+          theme = localStorage.getItem('tf-theme') || theme;
+          var savedLang = localStorage.getItem('tf-lang');
+          if (savedLang === 'en' || savedLang === 'ar') {
+            lang = savedLang;
+          } else if (navigator.language && navigator.language.toLowerCase().startsWith('ar')) {
+            lang = 'ar';
+          }
+        } catch (e) {}
+        var root = document.documentElement;
+        if (theme === 'light' || theme === 'dark') {
+          root.dataset.theme = theme;
+        }
+        root.lang = lang;
+        root.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen antialiased">
+    <app-root>
+      <div class="min-h-screen grid place-items-center bg-paper">
+        <div class="flex flex-col items-center gap-3">
+          <svg class="size-12" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="9" fill="var(--color-flow)" />
+            <path
+              d="M9 22.5V9.5M16 22.5v-7M23 22.5v-3"
+              stroke="var(--color-on-flow)"
+              stroke-width="3.6"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="display text-xl font-extrabold text-ink">TaskFlow</span>
+        </div>
+      </div>
+    </app-root>
+  </body>
+</html>
