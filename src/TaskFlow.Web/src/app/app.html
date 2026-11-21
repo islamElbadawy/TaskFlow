@@ -1,0 +1,12 @@
+@if (!auth.ready()) {
+  <div class="min-h-screen grid place-items-center bg-paper">
+    <div class="flex flex-col items-center gap-3">
+      <app-brand-mark sizeClass="size-12" [draw]="true" />
+      <span class="display text-xl font-extrabold text-ink">TaskFlow</span>
+    </div>
+  </div>
+} @else {
+  <router-outlet />
+}
+
+<app-toast-host />
