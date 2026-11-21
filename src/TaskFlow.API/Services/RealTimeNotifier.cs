@@ -17,4 +17,7 @@ public class RealTimeNotifier : IRealTimeNotifier
 
     public Task SendAsync(Guid userId, NotificationDto notification) =>
         _hubContext.Clients.User(userId.ToString()).ReceiveNotification(notification);
+
+    public Task NotifyBoardChangedAsync(BoardChangeDto change) =>
+        _hubContext.Clients.All.BoardChanged(change);
 }

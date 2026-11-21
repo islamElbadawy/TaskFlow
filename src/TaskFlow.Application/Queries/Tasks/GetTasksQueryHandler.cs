@@ -28,6 +28,10 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
         var createdById = query.CreatedById;
         var unassigned = query.Unassigned;
         var overdue = query.Overdue;
+        var dueBefore = query.DueBefore.HasValue
+            ? DateTime.SpecifyKind(query.DueBefore.Value.ToUniversalTime(), DateTimeKind.Utc)
+            : (DateTime?)null;
+        var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim().ToLower();
         var now = DateTime.UtcNow;
 
         // Unused filters collapse to "true" in the generated SQL parameters, so one expression covers every combination.
@@ -37,7 +41,9 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
             (assignedToId == null || t.AssignedToUserId == assignedToId) &&
             (!unassigned || t.AssignedToUserId == null) &&
             (createdById == null || t.CreatedByUserId == createdById) &&
-            (!overdue || (t.DueDate != null && t.DueDate < now && t.Status != TaskItemStatus.Done));
+            (!overdue || (t.DueDate != null && t.DueDate < now && t.Status != TaskItemStatus.Done)) &&
+            (dueBefore == null || (t.DueDate != null && t.DueDate <= dueBefore && t.Status != TaskItemStatus.Done)) &&
+            (search == null || t.Title.ToLower().Contains(search) || t.Description.ToLower().Contains(search));
 
         var totalCount = await _unitOfWork.TasksItems.CountAsync(filter, cancellationToken);
 

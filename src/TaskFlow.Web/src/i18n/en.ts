@@ -90,6 +90,7 @@ export const EN = {
   anyone: 'Anyone',
   unassigned: 'Unassigned',
   overdueOnly: 'Overdue only',
+  searchTasks: 'Search tasks',
   clearFilters: 'Clear filters',
   colTask: 'Task',
   showingRange: (from: number, to: number, total: number) =>

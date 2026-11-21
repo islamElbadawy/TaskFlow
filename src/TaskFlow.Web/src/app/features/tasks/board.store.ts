@@ -21,6 +21,7 @@ export interface BoardFilters {
   unassigned?: boolean;
   createdById?: string;
   overdue?: boolean;
+  search?: string;
 }
 
 interface ColumnMeta {
@@ -67,13 +68,17 @@ export class BoardStore {
 
   readonly hasActiveFilters = computed(() => {
     const f = this._filters();
-    return Boolean(f.priority || f.assignedToId || f.unassigned || f.createdById || f.overdue);
+    return Boolean(
+      f.priority || f.assignedToId || f.unassigned || f.createdById || f.overdue || f.search,
+    );
   });
 
-  load(filters: BoardFilters = this._filters()): void {
+  load(filters: BoardFilters = this._filters(), silent = false): void {
     this.loadSub?.unsubscribe();
     this._filters.set(filters);
-    this._loading.set(true);
+    if (!silent) {
+      this._loading.set(true);
+    }
     this._error.set(null);
 
     const query: Omit<TaskQueryParams, 'status' | 'sort'> = {

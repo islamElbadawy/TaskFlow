@@ -114,6 +114,7 @@ export const AR = {
   anyone: 'أي شخص',
   unassigned: 'غير مسندة',
   overdueOnly: 'المتأخرة فقط',
+  searchTasks: 'ابحث في المهام',
   clearFilters: 'مسح عوامل التصفية',
   colTask: 'المهمة',
   showingRange: (from: number, to: number, total: number) =>

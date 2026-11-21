@@ -6,4 +6,5 @@ namespace TaskFlow.Application.Common.Interfaces;
 public interface IRealTimeNotifier
 {
     Task SendAsync(Guid userId, NotificationDto notification);
+    Task NotifyBoardChangedAsync(BoardChangeDto change);
 }

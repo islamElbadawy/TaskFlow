@@ -32,6 +32,12 @@ public class GetTasksQuery : IQuery<Result<PaginatedList<TaskListDto>>>
     /// <summary>true: only tasks past their due date that are not Done.</summary>
     public bool Overdue { get; set; }
 
+    /// <summary>Only non-Done tasks due on or before this UTC timestamp.</summary>
+    public DateTime? DueBefore { get; set; }
+
+    /// <summary>Case-insensitive substring search across task title and description.</summary>
+    public string? Search { get; set; }
+
     /// <summary>
     /// createdAt (default): newest first. position: board order, i.e. by status (Todo, InProgress, Done), then by
     /// position in the column. Case-insensitive.

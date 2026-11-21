@@ -2,13 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import type { HubConnection } from '@microsoft/signalr';
 import { Notification } from '../api/models';
 import { APP_CONFIG } from '../config/app-config.token';
-import { RealtimeClient } from './realtime-client';
+import { BoardChange, RealtimeClient } from './realtime-client';
 
 @Injectable()
 export class SignalrRealtimeClient extends RealtimeClient {
   private readonly config = inject(APP_CONFIG);
   private connection: HubConnection | null = null;
   private readonly notificationHandlers = new Set<(n: Notification) => void>();
+  private readonly boardChangeHandlers = new Set<(change: BoardChange) => void>();
   private readonly reconnectHandlers = new Set<() => void>();
 
   override async start(tokenFactory: () => string): Promise<void> {
@@ -35,6 +36,12 @@ export class SignalrRealtimeClient extends RealtimeClient {
     connection.on('ReceiveNotification', (notification: Notification) => {
       for (const handler of this.notificationHandlers) {
         handler(notification);
+      }
+    });
+
+    connection.on('BoardChanged', (change: BoardChange) => {
+      for (const handler of this.boardChangeHandlers) {
+        handler(change);
       }
     });
 
@@ -67,6 +74,11 @@ export class SignalrRealtimeClient extends RealtimeClient {
   override onNotification(handler: (notification: Notification) => void): () => void {
     this.notificationHandlers.add(handler);
     return () => this.notificationHandlers.delete(handler);
+  }
+
+  override onBoardChanged(handler: (change: BoardChange) => void): () => void {
+    this.boardChangeHandlers.add(handler);
+    return () => this.boardChangeHandlers.delete(handler);
   }
 
   override onReconnected(handler: () => void): () => void {

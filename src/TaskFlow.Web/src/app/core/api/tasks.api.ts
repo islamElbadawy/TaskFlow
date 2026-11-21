@@ -19,6 +19,8 @@ export interface TaskQueryParams {
   unassigned?: boolean;
   createdById?: string;
   overdue?: boolean;
+  dueBefore?: string;
+  search?: string;
   page?: number;
   pageSize?: number;
   sort?: 'createdAt' | 'position';
@@ -35,6 +37,8 @@ export function buildTaskHttpParams(query: TaskQueryParams): Record<string, stri
   }
   if (query.createdById) params['createdById'] = query.createdById;
   if (query.overdue) params['overdue'] = 'true';
+  if (query.dueBefore) params['dueBefore'] = query.dueBefore;
+  if (query.search?.trim()) params['search'] = query.search.trim();
   if (query.page) params['page'] = String(query.page);
   if (query.pageSize) params['pageSize'] = String(query.pageSize);
   if (query.sort) params['sort'] = query.sort;

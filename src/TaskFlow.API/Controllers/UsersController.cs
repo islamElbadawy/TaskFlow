@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.API.Common;
+using TaskFlow.Application.Commands.Users;
 using TaskFlow.Application.Commands.Users.DeleteUserCommand;
 using TaskFlow.Application.Commands.Users.SetUserActiveCommand;
 using TaskFlow.Application.Commands.Users.UpdateUserCommand;
@@ -54,6 +55,15 @@ public class UsersController : ControllerBase
     {
         var query = new GetUserByIdQuery { UserId = id };
         var result = await _queryDispatcher.DispatchAsync(query, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Admin only: creates a user with the requested role without affecting the caller's session.</summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateUser([FromBody] AdminCreateUserCommand command)
+    {
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         return this.ToActionResult(result);
     }
 

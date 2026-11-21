@@ -218,9 +218,12 @@ export class DashboardPage {
   protected readonly Math = Math;
 
   protected readonly dashboard = httpResource<Dashboard>(() => '/api/dashboard');
+  private readonly dueBeforeIso = new Date(
+    Date.now() + LIMITS.DUE_SOON_DAYS * 86_400_000,
+  ).toISOString();
   private readonly tasksPool = httpResource<Paginated<TaskListItem>>(() => ({
     url: '/api/tasks',
-    params: { pageSize: String(LIMITS.MAX_PAGE_SIZE) },
+    params: { dueBefore: this.dueBeforeIso, pageSize: String(LIMITS.MAX_PAGE_SIZE) },
   }));
 
   protected readonly todayLabel = computed(() =>

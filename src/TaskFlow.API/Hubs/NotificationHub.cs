@@ -9,6 +9,9 @@ public interface INotificationClient
 {
     /// <summary>A new notification for the connected user (same shape as GET /api/notifications items).</summary>
     Task ReceiveNotification(NotificationDto notification);
+
+    /// <summary>Broadcast to connected clients when any task is created, updated, moved, or deleted.</summary>
+    Task BoardChanged(BoardChangeDto change);
 }
 
 /// <summary>

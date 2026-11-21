@@ -46,8 +46,6 @@ npm start
 
 ## Known gaps
 
-1. **Board position / reordering (Backend Part 1):** `BoardApi` requests `sort=position` and `PATCH /api/tasks/{id}/move` first, and automatically falls back to status-only (`PATCH /api/tasks/{id}/status`, no intra-column reordering) if the backend does not expose `position` yet.
-2. **Server notification messages are English-only:** In Arabic mode, `formatNotificationMessage` parses known English server patterns by notification type and renders Arabic copy, falling back to the server text if an unknown pattern appears.
-3. **"Due this week" on Dashboard:** The API has no `dueBefore` filter or due-date sort and caps `pageSize` at `100`, so the dashboard filters the first 100 tasks client-side. Teams with >100 open tasks will need a backend `dueBefore` query parameter.
-4. **Board live sync:** SignalR pushes notifications only; board changes made by other users do not live-sync until reload.
-5. **Production deployment / CORS:** `proxy.conf.json` applies to `ng serve` only. In production, either serve the SPA and API behind the same origin/reverse proxy, or configure `APP_CONFIG.apiUrl` and add `WithExposedHeaders("Retry-After")` to the backend CORS policy.
+1. **Server notification messages are English-only:** In Arabic mode, `formatNotificationMessage` parses known English server patterns by notification type and renders Arabic copy, falling back to the server text if an unknown pattern appears.
+2. **Session renewal:** JWT tokens last 24h without a refresh-token endpoint, so users re-authenticate after 24 hours.
+3. **Production deployment / CORS:** `proxy.conf.json` applies to `ng serve` only. In production, either serve the SPA and API behind the same origin/reverse proxy (recommended), or set `APP_CONFIG.apiUrl` (`Retry-After` is already exposed in backend CORS).
