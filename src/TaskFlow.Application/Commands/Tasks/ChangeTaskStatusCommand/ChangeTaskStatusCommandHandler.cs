@@ -40,14 +40,11 @@ public class ChangeTaskStatusCommandHandler : ICommandHandler<ChangeTaskStatusCo
             return Result<TaskDto>.Forbidden(
                 "Only the task's creator, its assignee, a Manager or an Admin can change its status.");
 
-        var previousStatus = task.Status;
-        task.ChangeStatus(status);
-
-        if (status != previousStatus)
+        // A real change moves the task to the bottom of its new column; the same status changes nothing.
+        if (status != task.Status)
         {
-            if (status == TaskItemStatus.Done)
-                await _taskNotifications.TaskCompletedAsync(actorId, task.Id, task.Title, task.CreatedByUserId, cancellationToken);
-            await _taskNotifications.StatusChangedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, status, cancellationToken);
+            task.MoveTo(status, await _unitOfWork.TasksItems.NextPositionAsync(status, cancellationToken));
+            await _taskNotifications.StatusChangedAsync(actorId, task, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

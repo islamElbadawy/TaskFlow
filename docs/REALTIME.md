@@ -8,9 +8,9 @@ to the recipient's open connections over SignalR. Clients read and manage them w
 | Event | Who is notified | Type | Example message |
 |---|---|---|---|
 | Task created with an assignee, `PUT` with a new assignee, `PATCH .../assignee` | the new assignee | `TaskAssigned` | Manager User assigned you "Write docs" |
-| Status changed to `Done` (`PUT` or `PATCH .../status`) | the creator | `TaskCompleted` | Sam Taylor marked "Write docs" as done |
+| Status changed to `Done` (`PUT`, `PATCH .../status` or `PATCH .../move`) | the creator | `TaskCompleted` | Sam Taylor marked "Write docs" as done |
 | `PUT` that changes something | the assignee | `TaskUpdated` | Manager User updated "Write docs" |
-| `PATCH .../status` that changes the status | the assignee | `TaskUpdated` | Manager User moved "Write docs" to InProgress |
+| `PATCH .../status` or `PATCH .../move` that changes the status (a reorder within a column notifies nobody) | the assignee | `TaskUpdated` | Manager User moved "Write docs" to InProgress |
 | Comment added | the creator and the assignee | `CommentAdded` | Regular User commented on "Write docs" |
 | Task due within 24 hours, not Done (background job every 15 minutes, or `POST /api/reminders/run`) | the assignee, if active | `DeadlineApproaching` | "Write docs" is due in 5 hours |
 

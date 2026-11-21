@@ -1,4 +1,5 @@
 using TaskFlow.Application.Common.Interfaces;
+using TaskFlow.Domain.Entities;
 using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 
@@ -46,6 +47,17 @@ public sealed class TaskNotifications
         CancellationToken cancellationToken) =>
         NotifyAsync(assigneeId, actorId, taskId, NotificationType.TaskUpdated,
             actor => $"{actor} moved \"{title}\" to {status}", cancellationToken);
+
+    /// <summary>
+    /// <paramref name="task"/> was just moved to a different status (PATCH /status, PATCH /move): Done notifies the
+    /// creator, and the assignee is told about the new status.
+    /// </summary>
+    public async Task StatusChangedAsync(Guid actorId, TaskItem task, CancellationToken cancellationToken)
+    {
+        if (task.Status == TaskItemStatus.Done)
+            await TaskCompletedAsync(actorId, task.Id, task.Title, task.CreatedByUserId, cancellationToken);
+        await StatusChangedAsync(actorId, task.Id, task.Title, task.AssignedToUserId, task.Status, cancellationToken);
+    }
 
     public async Task CommentAddedAsync(Guid actorId, Guid taskId, string title, Guid creatorId, Guid? assigneeId,
         CancellationToken cancellationToken)

@@ -143,6 +143,12 @@ namespace TaskFlow.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("due_date");
 
+                    b.Property<int>("Position")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("position");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -173,6 +179,9 @@ namespace TaskFlow.Infrastructure.Data.Migrations
 
                     b.HasIndex("AssignedToUserId", "Status")
                         .HasDatabaseName("ix_tasks_assigned_to_user_id_status");
+
+                    b.HasIndex("Status", "Position")
+                        .HasDatabaseName("ix_tasks_status_position");
 
                     b.ToTable("tasks", (string)null);
                 });

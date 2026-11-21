@@ -5,6 +5,7 @@ public record TaskDto(
     string Title,
     string Description,
     string Status,
+    int Position,
     string Priority,
     DateTime? DueDate,
     Guid CreatedById,

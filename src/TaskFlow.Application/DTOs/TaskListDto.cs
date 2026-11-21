@@ -5,6 +5,7 @@ public record TaskListDto(
     Guid Id,
     string Title,
     string Status,
+    int Position,
     string Priority,
     DateTime? DueDate,
     bool IsOverdue,

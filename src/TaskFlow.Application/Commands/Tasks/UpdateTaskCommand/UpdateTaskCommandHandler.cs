@@ -56,7 +56,9 @@ public class UpdateTaskCommandHandler : ICommandHandler<UpdateTaskCommand, Resul
         var before = (task.Title, task.Description, task.Priority, task.DueDate, task.Status, task.AssignedToUserId);
 
         task.UpdateDetails(command.Title, command.Description, priority, command.DueDate);
-        task.ChangeStatus(status);
+        // A status change puts the task at the bottom of its new column.
+        if (status != task.Status)
+            task.MoveTo(status, await _unitOfWork.TasksItems.NextPositionAsync(status, cancellationToken));
         task.AssignTo(command.AssignedToId);
 
         // Notifications go into the same SaveChanges as the change (order = priority, one per user).

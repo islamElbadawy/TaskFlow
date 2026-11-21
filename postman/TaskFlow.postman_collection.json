@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "TaskFlow API",
-    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates, and so does folder 8. Folder 9 deactivates and reactivates accounts (including the seeded inactive one) and restores their original state. Folder 10 runs the deadline reminders with its own throw-away user and deletes its tasks and user; a run also reminds other tasks due within 24 h (seed tasks included), and those reminders stay.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
+    "description": "Tests for the TaskFlow API against the seeded development database (see docs/DATABASE.md).\n\n1. Start PostgreSQL (`docker compose up -d`) and the API (`dotnet run --launch-profile https` in src/TaskFlow.API).\n2. Check `baseUrl` in the collection variables (default https://localhost:7103).\n3. Run the whole collection in order with the Collection Runner: later requests use tokens and ids saved by earlier ones.\n\nAll seeded accounts use the password in the `password` variable. Re-runnable: each run registers and then deletes its own user; folder 5 deletes every task the run created and folder 6 every comment. Those folders also trigger automatic notifications for seeded users (assignments, comments, status changes), which stay as history; folder 7 uses its own throw-away user and removes everything it creates, and so does folder 8. Folder 9 deactivates and reactivates accounts (including the seeded inactive one) and restores their original state. Folder 10 runs the deadline reminders with its own throw-away user and deletes its tasks and user; a run also reminds other tasks due within 24 h (seed tasks included), and those reminders stay. Folder 11 moves its own three tasks around the board and deletes them; the seeded tasks keep their relative order.\n\nResponses: success is 200 with `{ isSuccess, data }`; every failure is an RFC 9457 ProblemDetails (`application/problem+json`) with `title` = error type (Validation, Unauthorized, Forbidden, NotFound, Conflict) and `detail` = message. Validation errors from the request validators also carry an `errors` object per field.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "protocolProfileBehavior": {
@@ -182,6 +182,34 @@
     },
     {
       "key": "reminderDoneTaskId",
+      "value": ""
+    },
+    {
+      "key": "boardTaskA",
+      "value": ""
+    },
+    {
+      "key": "boardTaskAPosition",
+      "value": ""
+    },
+    {
+      "key": "boardTaskB",
+      "value": ""
+    },
+    {
+      "key": "boardTaskBPosition",
+      "value": ""
+    },
+    {
+      "key": "boardTaskC",
+      "value": ""
+    },
+    {
+      "key": "boardTaskCPosition",
+      "value": ""
+    },
+    {
+      "key": "boardNotificationId",
       "value": ""
     }
   ],
@@ -10012,6 +10040,1199 @@
                 "api",
                 "users",
                 "{{reminderUserId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Task position",
+      "description": "Board order: new tasks at the end of Todo, PATCH /api/tasks/{id}/move (reorder, across columns, notifications, errors) and GET /api/tasks?sort=position. Creates three tasks and deletes them at the end; the move of A shifts seeded tasks in InProgress and Done, which keeps their relative order.",
+      "item": [
+        {
+          "name": "Manager creates board task A (end of Todo)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: board A\",\n  \"description\": \"Created by the Postman collection (folder 11)\",\n  \"priority\": \"Medium\",\n  \"assignedToId\": \"44444444-4444-4444-4444-444444444444\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Starts in Todo with a position\", () => { pm.expect(task.status).to.eql(\"Todo\"); pm.expect(task.position).to.be.a(\"number\"); });",
+                  "pm.collectionVariables.set(\"boardTaskA\", task.id);",
+                  "pm.collectionVariables.set(\"boardTaskAPosition\", task.position);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager creates board task B (right after A)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: board B\",\n  \"description\": \"Created by the Postman collection (folder 11)\",\n  \"priority\": \"Medium\",\n  \"assignedToId\": \"44444444-4444-4444-4444-444444444444\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Starts in Todo with a position\", () => { pm.expect(task.status).to.eql(\"Todo\"); pm.expect(task.position).to.be.a(\"number\"); });",
+                  "pm.test(\"Placed after A\", () => pm.expect(task.position).to.be.above(Number(pm.collectionVariables.get(\"boardTaskAPosition\"))));",
+                  "pm.collectionVariables.set(\"boardTaskB\", task.id);",
+                  "pm.collectionVariables.set(\"boardTaskBPosition\", task.position);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager creates board task C (right after B)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman: board C\",\n  \"description\": \"Created by the Postman collection (folder 11)\",\n  \"priority\": \"Medium\",\n  \"assignedToId\": \"44444444-4444-4444-4444-444444444444\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Starts in Todo with a position\", () => { pm.expect(task.status).to.eql(\"Todo\"); pm.expect(task.position).to.be.a(\"number\"); });",
+                  "pm.test(\"Placed after B\", () => pm.expect(task.position).to.be.above(Number(pm.collectionVariables.get(\"boardTaskBPosition\"))));",
+                  "pm.collectionVariables.set(\"boardTaskC\", task.id);",
+                  "pm.collectionVariables.set(\"boardTaskCPosition\", task.position);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Move C above A (reorder in Todo) -> 200",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskC}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskC}}",
+                "move"
+              ]
+            },
+            "description": "Puts C directly above A. The Todo column is renumbered 0..n-1.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Todo\",\n  \"beforeTaskId\": \"{{boardTaskA}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Still Todo\", () => pm.expect(task.status).to.eql(\"Todo\"));",
+                  "pm.test(\"Takes A's old place\", () => pm.expect(task.position).to.eql(Number(pm.collectionVariables.get(\"boardTaskAPosition\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Todo in board order: C, A, B next to each other",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?sort=position&status=Todo&pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "position"
+                },
+                {
+                  "key": "status",
+                  "value": "Todo"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "sort=position with status=Todo is one board column, top to bottom."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "const ids = [\"boardTaskC\", \"boardTaskA\", \"boardTaskB\"].map(v => pm.collectionVariables.get(v));",
+                  "const mine = items.filter(t => ids.includes(t.id));",
+                  "pm.test(\"All three on the page, in the order C, A, B\", () => pm.expect(mine.map(t => t.id)).to.eql(ids));",
+                  "pm.test(\"Consecutive positions\", () => { pm.expect(mine[1].position).to.eql(mine[0].position + 1); pm.expect(mine[2].position).to.eql(mine[0].position + 2); });",
+                  "pm.test(\"Only Todo, sorted by position\", () => { pm.expect(items.every(t => t.status === \"Todo\")).to.eql(true); const p = items.map(t => t.position); pm.expect(p).to.eql([...p].sort((a, b) => a - b)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assignee (Sam) moves A above Write docs in InProgress -> 200",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user2Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskA}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskA}}",
+                "move"
+              ]
+            },
+            "description": "Moving across columns: the assignee may do it (same rule as PATCH /status). Both columns are renumbered.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\",\n  \"beforeTaskId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Now InProgress\", () => pm.expect(task.status).to.eql(\"InProgress\"));",
+                  "pm.collectionVariables.set(\"boardTaskAPosition\", task.position);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Write docs is right below A",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Position is A + 1\", () => pm.expect(pm.response.json().data.position).to.eql(Number(pm.collectionVariables.get(\"boardTaskAPosition\")) + 1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sam moves A to the end of Done -> creator is notified",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user2Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskA}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskA}}",
+                "move"
+              ]
+            },
+            "description": "A status change through move creates the same notifications as PATCH /status: Done notifies the creator (the Manager).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\",\n  \"beforeTaskId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const task = pm.response.json().data;",
+                  "pm.test(\"Now Done\", () => pm.expect(task.status).to.eql(\"Done\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manager's newest notification: Sam marked A as done",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?pageSize=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const latest = pm.response.json().data.items[0];",
+                  "pm.test(\"TaskCompleted for board A\", () => { pm.expect(latest.type).to.eql(\"TaskCompleted\"); pm.expect(latest.message).to.eql(\"Sam Taylor marked \\\"Postman: board A\\\" as done\"); });",
+                  "pm.collectionVariables.set(\"boardNotificationId\", latest.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sam reorders A within Done (to the end) -> 200",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user2Token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskA}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskA}}",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\",\n  \"beforeTaskId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Still Done\", () => pm.expect(pm.response.json().data.status).to.eql(\"Done\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A reorder notifies nobody: the Manager's newest notification is unchanged",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?pageSize=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "pm.test(\"Same newest notification\", () => pm.expect(pm.response.json().data.items[0].id).to.eql(pm.collectionVariables.get(\"boardNotificationId\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "beforeTaskId is the task itself -> 400 validation",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskB}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskB}}",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Todo\",\n  \"beforeTaskId\": \"{{boardTaskB}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for BeforeTaskId\", () => pm.expect(pm.response.json().errors).to.have.property(\"BeforeTaskId\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "beforeTaskId in another column -> 400",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskB}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskB}}",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\",\n  \"beforeTaskId\": \"{{boardTaskC}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"ProblemDetails names the column\", () => { const p = pm.response.json(); pm.expect(p.title).to.eql(\"Validation\"); pm.expect(p.detail).to.eql(\"beforeTaskId must be a task in the Done column\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown status -> 400 validation",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskB}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskB}}",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Blocked\",\n  \"beforeTaskId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for Status\", () => pm.expect(pm.response.json().errors).to.have.property(\"Status\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Move an unknown task -> 404",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/00000000-0000-0000-0000-000000000001/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "00000000-0000-0000-0000-000000000001",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Todo\",\n  \"beforeTaskId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"ProblemDetails NotFound\", () => { const p = pm.response.json(); pm.expect(p.title).to.eql(\"NotFound\"); pm.expect(p.detail).to.eql(\"Task not found\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Regular User (not involved) moves B -> 403",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskB}}/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskB}}",
+                "move"
+              ]
+            },
+            "description": "Not the creator, not the assignee, not a Manager or Admin: reordering is not allowed either.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Todo\",\n  \"beforeTaskId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"ProblemDetails Forbidden\", () => pm.expect(pm.response.json().title).to.eql(\"Forbidden\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Whole board in order: by status (Todo, InProgress, Done), then position",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?sort=position&pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "position"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));",
+                  "const items = pm.response.json().data.items;",
+                  "const rank = { Todo: 0, InProgress: 1, Done: 2 };",
+                  "const keys = items.map(t => rank[t.status] * 1000000 + t.position);",
+                  "pm.test(\"Sorted by column, then position\", () => pm.expect(keys).to.eql([...keys].sort((a, b) => a - b)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown sort -> 400 validation",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks?sort=title",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "title"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Validation problem for Sort\", () => pm.expect(pm.response.json().errors).to.have.property(\"Sort\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Manager deletes board task A",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskA}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Manager deletes board task B",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"isSuccess is true\", () => pm.expect(pm.response.json().isSuccess).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Manager deletes board task C",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{boardTaskC}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{boardTaskC}}"
               ]
             }
           },

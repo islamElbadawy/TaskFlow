@@ -29,8 +29,9 @@ public class TasksController : ControllerBase
     }
 
 
-    /// <summary>Lists tasks, newest first. Optional filters: status, priority, assignedToId, unassigned,
-    /// createdById, overdue; paging with page (from 1) and pageSize (1-100, default 20).</summary>
+    /// <summary>Lists tasks, newest first (sort=createdAt) or in board order (sort=position: by status, then
+    /// position). Optional filters: status, priority, assignedToId, unassigned, createdById, overdue; paging with
+    /// page (from 1) and pageSize (1-100, default 20).</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] GetTasksQuery query)
     {
@@ -79,6 +80,17 @@ public class TasksController : ControllerBase
     /// 400 when the user is unknown or inactive.</summary>
     [HttpPatch("{id:guid}/assignee")]
     public async Task<IActionResult> Assign(Guid id, [FromBody] AssignTaskCommand command)
+    {
+        command.TaskId = id;
+        var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
+        return this.ToActionResult(result);
+    }
+
+    /// <summary>Body <c>{ "status": "Done", "beforeTaskId": "&lt;guid&gt;" }</c>: puts the task directly above
+    /// beforeTaskId in that column, or at the end when it is null. Creator, assignee, Manager or Admin; 400 when
+    /// beforeTaskId is the task itself or not in the target column.</summary>
+    [HttpPatch("{id:guid}/move")]
+    public async Task<IActionResult> Move(Guid id, [FromBody] MoveTaskCommand command)
     {
         command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);

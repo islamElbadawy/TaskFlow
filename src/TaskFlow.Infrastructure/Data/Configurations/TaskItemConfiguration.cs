@@ -30,6 +30,10 @@ public class TaskItemConfiguration: IEntityTypeConfiguration<TaskItem>
         builder.HasIndex(t => new { t.AssignedToUserId, t.Status });
         builder.HasIndex(t => t.CreatedByUserId);
 
+        // The board reads a column in order and appends to its end (highest position in a status).
+        builder.Property(t => t.Position).HasDefaultValue(0);
+        builder.HasIndex(t => new { t.Status, t.Position });
+
         builder.HasMany(t => t.Comments)
             .WithOne(t => t.Task)
             .HasForeignKey(t => t.TaskId)

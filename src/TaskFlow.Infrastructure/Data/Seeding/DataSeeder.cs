@@ -103,6 +103,15 @@ public class DataSeeder
                 TaskItemStatus.Done, TaskPriority.Low, createdBy: UserIds.Manager, assignedTo: UserIds.Inactive,
                 due: DaysAgo(30), createdAt: DaysAgo(60), updatedAt: DaysAgo(25)),
         };
+        // Board order, numbered like the AddTaskPosition backfill: per status, soonest due date first (none last),
+        // then oldest first.
+        foreach (var column in tasks.GroupBy(t => t.Status))
+        {
+            var position = 0;
+            foreach (var task in column.OrderBy(t => t.DueDate is null).ThenBy(t => t.DueDate).ThenBy(t => t.CreatedAt))
+                task.Position = position++;
+        }
+
         var existingTaskIds = (await _unitOfWork.TasksItems.ListAsync(null, t => t.Id, cancellationToken)).ToHashSet();
         foreach (var task in tasks)
         {
