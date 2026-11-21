@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using TaskFlow.Application;
 using TaskFlow.Application.Common.Settings;
@@ -89,6 +90,11 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization();
 
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 // CORS: browsers may call the API, and the SignalR hub (which sends credentials), only from the origins listed in
 // Cors:AllowedOrigins. appsettings.json lists none (no cross-origin access); Development allows local front-end ports.
 const string FrontendCorsPolicy = "Frontend";
@@ -96,7 +102,11 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(options => options.AddPolicy(FrontendCorsPolicy, policy =>
 {
     if (allowedOrigins.Length > 0)
-        policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .WithExposedHeaders("Retry-After");
 }));
 
 // Login and register: a fixed window per client IP (RateLimiting:Auth), 429 when exceeded.
@@ -124,10 +134,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors(FrontendCorsPolicy);
 app.UseRateLimiter();
 app.UseAuthorization();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
