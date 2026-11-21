@@ -135,7 +135,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors(FrontendCorsPolicy);
 app.UseRateLimiter();
 app.UseAuthorization();
