@@ -47,6 +47,8 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
             Description = command.Description,
             Priority = priority,
             Status = TaskItemStatus.Todo,
+            // New tasks go to the bottom of the Todo column.
+            Position = await _unitOfWork.TasksItems.NextPositionAsync(TaskItemStatus.Todo, cancellationToken),
             DueDate = command.DueDate,
             CreatedByUserId = command.CreatedById,
             AssignedToUserId = command.AssignedToId
@@ -65,6 +67,7 @@ public class CreateTaskCommandHandler : ICommandHandler<CreateTaskCommand, Resul
             Title: taskItem.Title,
             Description: taskItem.Description,
             Status: taskItem.Status.ToString(),
+            Position: taskItem.Position,
             Priority: taskItem.Priority.ToString(),
             DueDate: taskItem.DueDate,
             CreatedById: taskItem.CreatedByUserId,
