@@ -22,6 +22,7 @@ Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
 |---|---|---|
 | **User Accounts** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Admins can deactivate accounts: no login, and existing tokens stop working | ✅ |
 | **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task permissions | ✅ |
+| **Board** | A team-shared card order in each status column: drag a task above another or to the end, across columns too | ✅ |
 | **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
 | **Collaboration** | Comment threads on each task | ✅ |
 | **Awareness** | In-app notifications (real-time via SignalR), email for assignments, deadline reminders a day before a task is due | ✅ |
@@ -140,14 +141,17 @@ users              tasks                   comments          notifications
 ├─ email (unique)  ├─ status               ├─ user_id (FK)   ├─ type
 ├─ password_hash   ├─ priority             ├─ created_at     ├─ is_read
 ├─ role            ├─ due_date             └─ updated_at     ├─ related_task_id (FK)
-├─ is_active       ├─ created_by_user_id (FK)                ├─ created_at
-├─ created_at      ├─ assigned_to_user_id (FK)               └─ updated_at
-└─ updated_at      ├─ created_at
+├─ is_active       ├─ position                               ├─ created_at
+├─ created_at      ├─ created_by_user_id (FK)                └─ updated_at
+└─ updated_at      ├─ assigned_to_user_id (FK)
+                   ├─ created_at
                    └─ updated_at
 ```
 Enums are stored as text: status `Todo | InProgress | Done`, priority `Low | Medium | High`,
 role `User | Manager | Admin`, notification type `TaskAssigned | TaskUpdated | TaskCompleted | CommentAdded | DeadlineApproaching`.
 Deleting a task deletes its comments (cascade) and keeps its notifications with `related_task_id` set to null.
+`position` is the task's place in its status column (0 = top, index on `(status, position)`); only the order
+matters, so the gap a deleted task leaves is fine.
 
 ---
 
@@ -167,11 +171,12 @@ All endpoints except register/login need a `Bearer` token.
 | PUT | `/api/users/{id}/role` | Admin | Change role (the last active Admin can't be demoted); the user's existing tokens stop working |
 | PATCH | `/api/users/{id}/active` | Admin | Deactivate `{ "isActive": false }` or reactivate `true` (not yourself, not the last active Admin) |
 | DELETE | `/api/users/{id}` | self or Admin | Delete (not if the user created tasks) |
-| GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; paging `page`, `pageSize` |
+| GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; `sort=createdAt` (default, newest first) or `sort=position` (board order: status, then position); paging `page`, `pageSize` |
 | GET | `/api/tasks/{id}` | logged in | One task with names and comment count |
 | POST | `/api/tasks` | logged in | Create a task (creator = caller) |
 | PUT | `/api/tasks/{id}` | creator, Manager, Admin | Replace title, description, priority, due date, status, assignee |
-| PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` |
+| PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` (the task goes to the end of the new column) |
+| PATCH | `/api/tasks/{id}/move` | creator, assignee, Manager, Admin | Board drag and drop: `{ "status": "Done", "beforeTaskId": "<guid>" }` puts the task directly above that task in the column, `null` at the end; a status change notifies like `PATCH .../status` |
 | PATCH | `/api/tasks/{id}/assignee` | creator, Manager, Admin | Assign `{ "assignedToId": "<guid>" }` or unassign with `null` (active users only) |
 | DELETE | `/api/tasks/{id}` | creator, Admin | Delete a task (its comments too) |
 | GET | `/api/tasks/{taskId}/comments` | logged in | A task's comments, oldest first, with author names; paging `page`, `pageSize` |
@@ -198,7 +203,7 @@ Success: `200` with `{ "isSuccess": true, "data": { ... } }`. Failure: an RFC 94
 
 | Status | `title` | When |
 |---|---|---|
-| 400 | `Validation` (validator and binding errors add an `errors` object per field) | Invalid input: validator errors, malformed JSON, unknown priority/status/role, unknown assignee, wrong current password |
+| 400 | `Validation` (validator and binding errors add an `errors` object per field) | Invalid input: validator errors, malformed JSON, unknown priority/status/role/sort, unknown assignee, a `beforeTaskId` that is the task itself or not in the target column, wrong current password |
 | 401 | `Unauthorized` | Missing/invalid token, or the token of a deactivated/deleted user; failed login (same message for unknown email, wrong password and inactive account) |
 | 403 | `Forbidden` | Logged in but not allowed (e.g. a User editing another account, a non-Admin changing a role) |
 | 404 | `NotFound` | Unknown user or task |
@@ -223,6 +228,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Users: list, get, update, role change, delete with permission checks | ✅ Done |
 | Tasks: create, list with filters/paging, get by id | ✅ Done |
 | Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
+| Task position: board order per status column (`PATCH /api/tasks/{id}/move`, `GET /api/tasks?sort=position`) | ✅ Done |
 | Comments: list (paged), add, edit (author), delete (author or Admin) | ✅ Done |
 | Notifications API + automatic notifications on task/comment events (saved with the change) | ✅ Done |
 | SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
@@ -231,7 +237,7 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 | Email (task assigned, deadline reminder) with MailKit, Mailpit for development | ✅ Done |
 | Deadline reminders (background job + `POST /api/reminders/run`, one reminder per due date) | ✅ Done |
 | Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
-| Automated tests | ✅ 89 tests (xUnit + Testcontainers PostgreSQL and Mailpit): auth, users, user activation, tasks, lifecycle, comments, notifications + SignalR, dashboard, deadline reminders, email, validation, dispatchers, CORS, rate limiting |
+| Automated tests | ✅ 111 tests (xUnit + Testcontainers PostgreSQL and Mailpit): auth, users, user activation, token revocation, tasks, lifecycle, task position, comments, notifications + SignalR, dashboard, deadline reminders, email, validation, dispatchers, CORS, rate limiting |
 
 ---
 

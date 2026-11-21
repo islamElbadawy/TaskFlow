@@ -14,6 +14,7 @@ so you can try every feature straight away.
 | Naming | snake_case tables and columns (`tasks.assigned_to_user_id`) via `EFCore.NamingConventions` |
 | Migrations | `src/TaskFlow.Infrastructure/Data/Migrations`, history table `__ef_migrations_history` |
 | Seed data | `src/TaskFlow.Infrastructure/Data/Seeding/DataSeeder.cs` |
+| Board order | `tasks.position integer not null default 0`: the task's place in its status column (0 = top), index `ix_tasks_status_position` on `(status, position)`. Added by migration `AddTaskPosition`, which numbers each existing column from 0 by `due_date` (none last), then `created_at` |
 
 ---
 
@@ -128,7 +129,7 @@ What each role can do with the current endpoints:
 | List tasks (filters, paging), get a task | `GET /api/tasks`, `GET /api/tasks/{id}` | yes (all tasks) | yes |
 | Create a task | `POST /api/tasks` | yes | yes |
 | Edit a task / (re)assign it | `PUT /api/tasks/{id}`, `PATCH /api/tasks/{id}/assignee` | User: own tasks only (creator); Manager: any task | any task |
-| Change a task's status | `PATCH /api/tasks/{id}/status` | User: tasks they created **or are assigned to**; Manager: any task | any task |
+| Change a task's status, move it on the board (also within its column) | `PATCH /api/tasks/{id}/status`, `PATCH /api/tasks/{id}/move` | User: tasks they created **or are assigned to**; Manager: any task | any task |
 | Delete a task | `DELETE /api/tasks/{id}` | own tasks only (creator); **a Manager can't delete others' tasks** | any task |
 | Read and add comments | `GET`/`POST /api/tasks/{taskId}/comments` | yes (any task) | yes |
 | Edit a comment | `PUT /api/comments/{id}` | own comments only | own comments only (an Admin can't edit others' words) |
@@ -150,6 +151,11 @@ What each role can do with the current endpoints:
 | `a0000000-0000-0000-0000-000000000008` | Archive old reports | Done | Low | -30d | Manager → Inactive | Assigned to the deactivated account |
 
 Together they cover every status (Todo / InProgress / Done) and every priority (Low / Medium / High).
+
+Board order (`position`) of the seeded tasks, numbered like the `AddTaskPosition` backfill (due date, none last, then
+creation time): **Todo** Fix password reset email (0), Set up CI pipeline (1), Design notifications panel (2);
+**InProgress** Review sprint backlog (0), Write docs (1), Migrate database to PostgreSQL (2); **Done** Setup
+project (0), Archive old reports (1).
 
 ### 3.3 Comments
 
@@ -284,9 +290,10 @@ optional and combine with AND:
 | `unassigned` | `true` | Tasks assigned to nobody (not together with `assignedToId`) |
 | `createdById` | `11111111-…` | Tasks created by that user |
 | `overdue` | `true` | Past the due date and not `Done` |
+| `sort` | `position` | `createdAt` (default): newest first. `position`: board order, by status (`Todo`, `InProgress`, `Done`), then `position` in the column (case-insensitive) |
 | `page`, `pageSize` | `2`, `10` | Paging: page from 1, size 1–100 (default 20) |
 
-An unknown status/priority or an out-of-range page size returns 400 with the validation errors.
+An unknown status/priority/sort or an out-of-range page size returns 400 with the validation errors.
 `GET /api/tasks/{id}` returns one task with its description and comment count, or 404.
 
 ```powershell
@@ -330,12 +337,25 @@ Invoke-RestMethod "$api/api/tasks/$id" -Method Put -Headers (Auth $manager) -Con
 Invoke-RestMethod "$api/api/tasks/$id/assignee" -Method Patch -Headers (Auth $manager) -ContentType "application/json" `
     -Body '{ "assignedToId": null }'
 
+# Board: put the task at the top of Done (directly above the seeded "Setup project"), then at the end of Todo
+Invoke-RestMethod "$api/api/tasks/$id/move" -Method Patch -Headers (Auth $manager) -ContentType "application/json" `
+    -Body '{ "status": "Done", "beforeTaskId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }'
+Invoke-RestMethod "$api/api/tasks/$id/move" -Method Patch -Headers (Auth $manager) -ContentType "application/json" `
+    -Body '{ "status": "Todo", "beforeTaskId": null }'
+(Invoke-RestMethod "$api/api/tasks?sort=position&status=Todo" -Headers (Auth $manager)).data.items | Select-Object position, title
+
 # Delete: the creator or an Admin (a Manager who didn't create the task gets 403)
 Invoke-RestMethod "$api/api/tasks/$id" -Method Delete -Headers (Auth $manager)
 ```
 
-PUT and both PATCH requests return the updated task (same shape as `GET /api/tasks/{id}`). Errors: 404 unknown
+PUT and the PATCH requests return the updated task (same shape as `GET /api/tasks/{id}`). Errors: 404 unknown
 task, 403 not allowed (see the table in 3.1), 400 unknown status/priority or an unknown/inactive new assignee.
+
+Board order: a new task goes to the end of Todo, and a status change through `PATCH .../status` or `PUT` puts the
+task at the end of its new column. `PATCH .../move` places it directly above `beforeTaskId` (which must be in the
+target column, else 400) or at the end when it is `null`, and renumbers the old and the new column 0..n-1 in one
+transaction. A status change through it creates the same notifications as `PATCH .../status`; a reorder within a
+column creates none. A change of `position` alone doesn't set `updated_at`. Concurrent moves: last write wins.
 Keeping an assignee who has since been deactivated is allowed; only a *new* assignee must be active. Deleting a
 task deletes its comments; its notifications stay, with `related_task_id` cleared.
 
@@ -461,12 +481,13 @@ at start.
 ### 4.11 Postman collection
 
 [`postman/TaskFlow.postman_collection.json`](../postman/TaskFlow.postman_collection.json) runs all of the
-checks above as 182 requests with assertions: logins for every account, the inactive-login rejection,
+checks above as 203 requests with assertions: logins for every account, the inactive-login rejection,
 register and change-password, the 400/401/403/404/409 cases (status code plus the ProblemDetails `title` and
 `detail`), role changes, task creation, the task filters and paging, and the task lifecycle (update, status,
 assign/unassign and delete with every permission case), comments (list, add, edit, delete) and notifications
 (automatic creation, list, unread count, mark read, read all), the dashboard, user activation (including the
-401 for a deactivated user's existing token) and the deadline reminders.
+401 for a deactivated user's existing token), the deadline reminders and the board order (folder 11 "Task position":
+reorder and cross-column moves, their notifications and errors, and `sort=position`).
 
 1. In Postman: **Import** → select the file.
 2. Check the collection variable `baseUrl` (default `https://localhost:7103`). SSL verification is turned
@@ -487,7 +508,9 @@ notifications from your own manual testing), or reset the database (section 6). 
 throw-away users and leave nothing. Folder 9 activates and then deactivates `inactive@taskflow.dev` again,
 so its `is_active` ends as seeded (only its `updated_at` changes). Folder 10 deletes its tasks and its throw-away user,
 but its reminder run also reminds any other task due within 24 hours (on a fresh seed, "Review sprint backlog" for the
-Manager), and those reminders stay.
+Manager), and those reminders stay. Folder 11 deletes its three tasks; moving one of them through InProgress and Done
+renumbers the seeded tasks in those columns but keeps their order, and Sam's and the Manager's notifications from it
+(three assignments, one completion) stay.
 
 ### 4.12 Automated integration tests
 
@@ -537,6 +560,9 @@ FROM tasks t
 JOIN users c ON c.id = t.created_by_user_id
 LEFT JOIN users a ON a.id = t.assigned_to_user_id
 ORDER BY t.due_date NULLS LAST;
+
+-- The board, column by column (uses index ix_tasks_status_position)
+SELECT status, position, title FROM tasks ORDER BY status, position;
 
 -- Overdue tasks
 SELECT title, due_date FROM tasks WHERE due_date < now() AND status <> 'Done';
