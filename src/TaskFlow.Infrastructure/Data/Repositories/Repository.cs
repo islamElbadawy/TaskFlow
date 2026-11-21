@@ -108,4 +108,19 @@ public class Repository<T> : IRepository<T> where T : class
 
         return await query.Skip(skip).Take(take).Select(selector).ToListAsync(cancellationToken);
     }
+
+    public virtual async Task<IReadOnlyList<TResult>> ListAsync<TResult>(
+        Expression<Func<T, bool>>? filter,
+        Func<IQueryable<T>, IOrderedQueryable<T>> orderBy,
+        int skip,
+        int take,
+        Expression<Func<T, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<T> query = _dbSet.AsNoTracking();
+        if (filter is not null)
+            query = query.Where(filter);
+
+        return await orderBy(query).Skip(skip).Take(take).Select(selector).ToListAsync(cancellationToken);
+    }
 }

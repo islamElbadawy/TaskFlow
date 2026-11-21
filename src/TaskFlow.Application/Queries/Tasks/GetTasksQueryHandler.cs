@@ -41,14 +41,28 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
 
         var totalCount = await _unitOfWork.TasksItems.CountAsync(filter, cancellationToken);
 
-        var items = await _unitOfWork.TasksItems.ListAsync(
-            filter,
-            orderBy: t => t.CreatedAt,
-            descending: true,
-            skip: (query.Page - 1) * query.PageSize,
-            take: query.PageSize,
-            selector: TaskProjections.ToListDto(now),
-            cancellationToken);
+        var skip = (query.Page - 1) * query.PageSize;
+        var items = string.Equals(query.Sort, GetTasksQuery.SortByPosition, StringComparison.OrdinalIgnoreCase)
+            // Board order: columns left to right, then top to bottom; ties (gaps don't matter) by age, then id.
+            ? await _unitOfWork.TasksItems.ListAsync(
+                filter,
+                orderBy: q => q
+                    .OrderBy(t => t.Status == TaskItemStatus.Todo ? 0 : t.Status == TaskItemStatus.InProgress ? 1 : 2)
+                    .ThenBy(t => t.Position)
+                    .ThenBy(t => t.CreatedAt)
+                    .ThenBy(t => t.Id),
+                skip,
+                query.PageSize,
+                TaskProjections.ToListDto(now),
+                cancellationToken)
+            : await _unitOfWork.TasksItems.ListAsync(
+                filter,
+                orderBy: t => t.CreatedAt,
+                descending: true,
+                skip,
+                take: query.PageSize,
+                selector: TaskProjections.ToListDto(now),
+                cancellationToken);
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize);
         return Result<PaginatedList<TaskListDto>>.Success(

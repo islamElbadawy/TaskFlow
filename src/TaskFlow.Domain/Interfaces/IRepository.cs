@@ -42,4 +42,16 @@ public interface IRepository<T> where T : class
         int take,
         Expression<Func<T, TResult>> selector,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Like the overload above, for sorts on several keys, e.g.
+    /// <c>q =&gt; q.OrderBy(t =&gt; t.Status).ThenBy(t =&gt; t.Position)</c>. The ordering is translated to SQL.
+    /// </summary>
+    Task<IReadOnlyList<TResult>> ListAsync<TResult>(
+        Expression<Func<T, bool>>? filter,
+        Func<IQueryable<T>, IOrderedQueryable<T>> orderBy,
+        int skip,
+        int take,
+        Expression<Func<T, TResult>> selector,
+        CancellationToken cancellationToken = default);
 }

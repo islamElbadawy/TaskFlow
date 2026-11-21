@@ -29,8 +29,9 @@ public class TasksController : ControllerBase
     }
 
 
-    /// <summary>Lists tasks, newest first. Optional filters: status, priority, assignedToId, unassigned,
-    /// createdById, overdue; paging with page (from 1) and pageSize (1-100, default 20).</summary>
+    /// <summary>Lists tasks, newest first (sort=createdAt) or in board order (sort=position: by status, then
+    /// position). Optional filters: status, priority, assignedToId, unassigned, createdById, overdue; paging with
+    /// page (from 1) and pageSize (1-100, default 20).</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] GetTasksQuery query)
     {

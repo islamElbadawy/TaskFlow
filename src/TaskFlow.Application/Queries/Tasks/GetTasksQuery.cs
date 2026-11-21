@@ -13,6 +13,9 @@ public class GetTasksQuery : IQuery<Result<PaginatedList<TaskListDto>>>
 {
     public const int MaxPageSize = 100;
 
+    public const string SortByCreatedAt = "createdAt";
+    public const string SortByPosition = "position";
+
     /// <summary>Todo, InProgress or Done (case-insensitive).</summary>
     public string? Status { get; set; }
 
@@ -28,6 +31,12 @@ public class GetTasksQuery : IQuery<Result<PaginatedList<TaskListDto>>>
 
     /// <summary>true: only tasks past their due date that are not Done.</summary>
     public bool Overdue { get; set; }
+
+    /// <summary>
+    /// createdAt (default): newest first. position: board order, i.e. by status (Todo, InProgress, Done), then by
+    /// position in the column. Case-insensitive.
+    /// </summary>
+    public string? Sort { get; set; }
 
     public int Page { get; set; } = 1;
 
