@@ -49,3 +49,9 @@ project.fragment.lock.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Frontend (Angular)
+node_modules/
+dist/
+.angular/
+

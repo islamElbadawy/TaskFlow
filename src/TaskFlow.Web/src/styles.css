@@ -1,0 +1,411 @@
+@import 'tailwindcss';
+
+/*
+ * TaskFlow design tokens (Tailwind CSS v4).
+ * Source of truth for color, type, radius and motion.
+ */
+@theme {
+  /* type */
+  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* neutrals (light) */
+  --color-paper: #f4f6f6;
+  --color-panel: #ffffff;
+  --color-sunk: #eaeeee;
+  --color-ink: #17201f;
+  --color-slate: #586463;
+  --color-line: rgb(23 32 31 / 0.1);
+
+  /* brand: spruce teal */
+  --color-flow: #0d7a72;
+  --color-flow-deep: #095f59;
+  --color-flow-soft: #dff0ee;
+  --color-on-flow: #ffffff;
+  --color-brand-panel: #0d7a72;
+
+  /* meaning */
+  --color-heat: #be2558;
+  --color-heat-soft: #fbe8ef;
+  --color-on-heat: #ffffff;
+  --color-amber: #a86a12;
+  --color-todo: #93a09f;
+
+  /* radius */
+  --radius-control: 10px;
+
+  /* motion */
+  --ease-flow: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.5, 1);
+}
+
+/* Tabular numbers in the mono face: counts, day numbers, char counters */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@utility tf-transition {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-flow);
+}
+
+@utility tf-lift {
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.3);
+  }
+}
+
+@utility tf-press {
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* ---- Dark theme: follows the system unless the user picked Light or Dark ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-paper: #101615;
+    --color-panel: #18201f;
+    --color-sunk: #0c1110;
+    --color-ink: #e6eceb;
+    --color-slate: #97a5a3;
+    --color-line: rgb(230 236 235 / 0.1);
+    --color-flow: #3cc2b5;
+    --color-flow-deep: #64d4c8;
+    --color-flow-soft: #12302d;
+    --color-on-flow: #06201d;
+    --color-brand-panel: #0b4f4a;
+    --color-heat: #f06292;
+    --color-heat-soft: #3a1626;
+    --color-on-heat: #2a0714;
+    --color-amber: #e0a43c;
+    --color-todo: #657372;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-paper: #101615;
+  --color-panel: #18201f;
+  --color-sunk: #0c1110;
+  --color-ink: #e6eceb;
+  --color-slate: #97a5a3;
+  --color-line: rgb(230 236 235 / 0.1);
+  --color-flow: #3cc2b5;
+  --color-flow-deep: #64d4c8;
+  --color-flow-soft: #12302d;
+  --color-on-flow: #06201d;
+  --color-brand-panel: #0b4f4a;
+  --color-heat: #f06292;
+  --color-heat-soft: #3a1626;
+  --color-on-heat: #2a0714;
+  --color-amber: #e0a43c;
+  --color-todo: #657372;
+  color-scheme: dark;
+}
+
+/* ---- Arabic: Arabic-capable faces, no letter spacing, slightly taller line height ---- */
+:root[lang='ar'] {
+  --font-sans: 'IBM Plex Sans Arabic', 'Atkinson Hyperlegible', sans-serif;
+  --font-display: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif;
+}
+:root[lang='ar'] body {
+  line-height: 1.7;
+}
+:root[lang='ar'] :is(h1, h2, h3, .display) {
+  letter-spacing: 0;
+}
+
+/* ---- Base ---- */
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  transition:
+    background-color 200ms var(--ease-flow),
+    color 200ms var(--ease-flow);
+}
+
+:is(h1, h2, h3, .display) {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-flow);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+select {
+  line-height: 1.25;
+  padding-block: 0;
+  vertical-align: middle;
+}
+
+/* ---- Motion primitives ---- */
+@keyframes tf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes tf-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes tf-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.94);
+  }
+}
+
+@keyframes tf-ring {
+  15% {
+    transform: rotate(14deg);
+  }
+  30% {
+    transform: rotate(-12deg);
+  }
+  45% {
+    transform: rotate(8deg);
+  }
+  60% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes tf-bump {
+  40% {
+    transform: scale(1.35);
+    color: var(--color-flow);
+  }
+}
+
+@keyframes tf-landed {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-flow);
+  }
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@keyframes tf-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes tf-toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(16px) scale(0.97);
+  }
+}
+
+@keyframes tf-toast-out-rtl {
+  to {
+    opacity: 0;
+    transform: translateX(-16px) scale(0.97);
+  }
+}
+
+@keyframes tf-drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes tf-walk {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+}
+
+@keyframes tf-walk-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+}
+
+@keyframes tf-draw {
+  from {
+    stroke-dashoffset: 14;
+  }
+}
+
+@keyframes tf-shake {
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes tf-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.tf-stagger > * {
+  animation: tf-rise 420ms var(--ease-flow) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.tf-grow {
+  animation: tf-grow 700ms var(--ease-flow) both;
+  transform-origin: left;
+}
+[dir='rtl'] .tf-grow {
+  transform-origin: right;
+}
+
+.tf-menu-in {
+  animation: tf-menu-in 240ms var(--ease-spring) both;
+  transform-origin: top right;
+}
+[dir='rtl'] .tf-menu-in {
+  transform-origin: top left;
+}
+
+.tf-ring {
+  animation: tf-ring 700ms var(--ease-flow);
+  transform-origin: 50% 10%;
+}
+
+.tf-bump {
+  animation: tf-bump 360ms var(--ease-flow);
+}
+
+.tf-landed {
+  animation: tf-landed 500ms var(--ease-flow);
+}
+
+.tf-toast-in {
+  animation: tf-toast-in 240ms var(--ease-flow) both;
+}
+
+.tf-toast-out {
+  animation: tf-toast-out 220ms var(--ease-flow) both;
+}
+[dir='rtl'] .tf-toast-out {
+  animation-name: tf-toast-out-rtl;
+}
+
+.tf-toast-bar {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.5;
+  transform-origin: left;
+  animation: tf-drain 4000ms linear both;
+}
+[dir='rtl'] .tf-toast-bar {
+  transform-origin: right;
+}
+
+.tf-walk {
+  animation: tf-walk 900ms var(--ease-spring) both;
+  animation-delay: calc(200ms + var(--i, 0) * 90ms);
+}
+[dir='rtl'] .tf-walk {
+  animation-name: tf-walk-rtl;
+}
+
+.tf-shake {
+  animation: tf-shake 260ms var(--ease-flow);
+}
+
+.tf-skel {
+  background: var(--color-sunk);
+  border-radius: 8px;
+  animation: tf-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- View Transitions ---- */
+::view-transition-old(root) {
+  animation: tf-vt-out 180ms var(--ease-flow) both;
+}
+::view-transition-new(root) {
+  animation: tf-vt-in 320ms var(--ease-flow) both;
+}
+@keyframes tf-vt-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes tf-vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+header.tf-topbar {
+  view-transition-name: topbar;
+}
+::view-transition-group(topbar) {
+  animation: none;
+}
+
+::view-transition-group(task-hero) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-flow);
+}
+
+.theme-vt::view-transition-old(root) {
+  animation: none;
+}
+.theme-vt::view-transition-new(root) {
+  animation: tf-reveal 560ms var(--ease-flow) both;
+}
+@keyframes tf-reveal {
+  from {
+    clip-path: circle(0 at var(--rx) var(--ry));
+  }
+  to {
+    clip-path: circle(var(--rr) at var(--rx) var(--ry));
+  }
+}
+
+/* ---- Reduced motion: stop everything ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
