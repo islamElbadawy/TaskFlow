@@ -40,18 +40,51 @@
   </head>
   <body class="min-h-screen antialiased">
     <app-root>
-      <div class="min-h-screen grid place-items-center bg-paper">
-        <div class="flex flex-col items-center gap-3">
-          <svg class="size-12" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="9" fill="var(--color-flow)" />
-            <path
-              d="M9 22.5V9.5M16 22.5v-7M23 22.5v-3"
-              stroke="var(--color-on-flow)"
-              stroke-width="3.6"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span class="display text-xl font-extrabold text-ink">TaskFlow</span>
+      <div class="min-h-screen grid place-items-center bg-paper" role="status" aria-live="polite">
+        <div class="flex flex-col items-center gap-4">
+          <div class="tf-loader-wrap">
+            <span class="tf-loader-ring" aria-hidden="true"></span>
+            <span class="tf-loader-ring tf-loader-ring-delay" aria-hidden="true"></span>
+            <svg
+              class="size-14 relative z-[1] brand-mark-loading"
+              viewBox="0 0 32 32"
+              aria-hidden="true"
+            >
+              <rect width="32" height="32" rx="9" fill="var(--color-flow)" />
+              <line
+                class="tf-bar tf-bar-1"
+                x1="9"
+                y1="22.5"
+                x2="9"
+                y2="9.5"
+                stroke="var(--color-on-flow)"
+                stroke-width="3.6"
+                stroke-linecap="round"
+              />
+              <line
+                class="tf-bar tf-bar-2"
+                x1="16"
+                y1="22.5"
+                x2="16"
+                y2="15.5"
+                stroke="var(--color-on-flow)"
+                stroke-width="3.6"
+                stroke-linecap="round"
+              />
+              <line
+                class="tf-bar tf-bar-3"
+                x1="23"
+                y1="22.5"
+                x2="23"
+                y2="19.5"
+                stroke="var(--color-on-flow)"
+                stroke-width="3.6"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+          <span class="display text-xl font-extrabold text-ink tracking-tight">TaskFlow</span>
+          <div class="tf-loader-rail" aria-hidden="true"></div>
         </div>
       </div>
     </app-root>
