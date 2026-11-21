@@ -64,12 +64,17 @@ public class ApplicationDbContext : DbContext
                 if (entry.Entity.CreatedAt == default)
                     entry.Entity.CreatedAt = now;
             }
-            else if (entry.State == EntityState.Modified)
+            // Renumbering a board column touches many tasks; a change of Position alone is layout, not an edit.
+            else if (entry.State == EntityState.Modified && !OnlyPositionChanged(entry))
             {
                 entry.Entity.UpdatedAt = now;
             }
         }
     }
+
+    private static bool OnlyPositionChanged(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<BaseEntity> entry) =>
+        entry.Entity is TaskItem &&
+        entry.Properties.Where(p => p.IsModified).All(p => p.Metadata.Name == nameof(TaskItem.Position));
 
     private static DateTime ToUtc(DateTime value) => value.Kind switch
     {

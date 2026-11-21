@@ -11,6 +11,9 @@ public class TaskItem : BaseEntity
     public TaskPriority Priority { get; set; } = TaskPriority.Medium;
     public DateTime? DueDate { get; set; }
 
+    /// <summary>Place in its status column on the board, 0 = top. Only the relative order matters (gaps are fine).</summary>
+    public int Position { get; set; }
+
     public Guid CreatedByUserId { get; set; }
     public Guid? AssignedToUserId { get; set; }
 
@@ -44,6 +47,13 @@ public class TaskItem : BaseEntity
     }
 
     public void ChangeStatus(TaskItemStatus status) => Status = status;
+
+    /// <summary>Puts the task in the <paramref name="status"/> column at <paramref name="position"/>.</summary>
+    public void MoveTo(TaskItemStatus status, int position)
+    {
+        Status = status;
+        Position = position;
+    }
 
     /// <summary>Assigns the task to <paramref name="userId"/>, or unassigns it when null.</summary>
     public void AssignTo(Guid? userId) => AssignedToUserId = userId;
