@@ -16,6 +16,9 @@ class FakeRealtimeClient extends RealtimeClient {
   override onNotification(): () => void {
     return () => undefined;
   }
+  override onBoardChanged(): () => void {
+    return () => undefined;
+  }
   override onReconnected(): () => void {
     return () => undefined;
   }

@@ -11,7 +11,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucideEllipsis, LucideLock, LucideMessageSquare, LucidePlus } from '@lucide/angular';
+import {
+  LucideEllipsis,
+  LucideLock,
+  LucideMessageSquare,
+  LucidePlus,
+  LucideSearch,
+} from '@lucide/angular';
 import {
   TASK_PRIORITIES,
   TASK_STATUSES,
@@ -23,6 +29,7 @@ import {
 import { AuthStore } from '../../core/auth/auth.store';
 import { canMoveTask } from '../../core/domain/permissions';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { RealtimeClient } from '../../core/realtime/realtime-client';
 import { StaggerDirective } from '../../shared/motion/stagger.directive';
 import { TaskHeroService } from '../../shared/motion/task-hero.service';
 import { AppAvatar } from '../../shared/ui/avatar';
@@ -63,6 +70,7 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
     LucideLock,
     LucideEllipsis,
     LucideMessageSquare,
+    LucideSearch,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -85,6 +93,25 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
 
       <!-- Filters -->
       <div class="mt-4 mb-6 flex flex-wrap items-center gap-2">
+        <label class="relative w-full sm:w-56">
+          <span class="sr-only">{{ i18n.t('searchTasks') }}</span>
+          <svg
+            lucideSearch
+            class="size-4 absolute start-3 top-2.5 text-slate pointer-events-none"
+            [strokeWidth]="1.8"
+            aria-hidden="true"
+          ></svg>
+          <input
+            type="search"
+            class="tf-transition h-9 ps-9 pe-3 rounded-[var(--radius-control)] bg-panel border text-[13px] w-full hover:border-slate/50"
+            [class.border-flow]="!!store.filters().search"
+            [class.border-line]="!store.filters().search"
+            [placeholder]="i18n.t('searchTasks')"
+            [value]="store.filters().search ?? ''"
+            (input)="onSearchInput($any($event.target).value)"
+          />
+        </label>
+
         <label class="relative">
           <span class="sr-only">{{ i18n.t('priority') }}</span>
           <select
@@ -328,9 +355,13 @@ export class BoardPage implements OnInit, OnDestroy {
   private readonly auth = inject(AuthStore);
   private readonly drag = inject(BoardDragService);
   private readonly hero = inject(TaskHeroService);
+  private readonly realtime = inject(RealtimeClient);
   private readonly router = inject(Router);
 
   private readonly boardScroll = viewChild<ElementRef<HTMLElement>>('boardScroll');
+  private unsubscribeBoardChanged: (() => void) | null = null;
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly statuses = TASK_STATUSES;
   protected readonly priorities = TASK_PRIORITIES;
@@ -347,10 +378,18 @@ export class BoardPage implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    void this.store.load();
+    this.store.load();
+    this.unsubscribeBoardChanged = this.realtime.onBoardChanged(() => {
+      if (this.drag.wasJustDragging()) return;
+      if (this.syncTimer) clearTimeout(this.syncTimer);
+      this.syncTimer = setTimeout(() => this.store.load(this.store.filters(), true), 250);
+    });
   }
 
   ngOnDestroy(): void {
+    this.unsubscribeBoardChanged?.();
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     this.drag.destroy();
   }
 
@@ -406,8 +445,16 @@ export class BoardPage implements OnInit, OnDestroy {
     void this.store.load(next);
   }
 
+  protected onSearchInput(value: string): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.setFilter({ search: value.trim() || undefined });
+    }, 250);
+  }
+
   protected clearFilters(): void {
-    void this.store.load({});
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.store.load({});
   }
 
   protected onCardPointerDown(event: PointerEvent, task: TaskListItem, locked: boolean): void {
