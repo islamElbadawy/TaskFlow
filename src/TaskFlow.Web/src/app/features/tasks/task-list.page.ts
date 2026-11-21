@@ -2,7 +2,7 @@ import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { LucideMessageSquare, LucidePlus } from '@lucide/angular';
+import { LucideMessageSquare, LucidePlus, LucideSearch } from '@lucide/angular';
 import { LIMITS } from '../../core/api/limits';
 import {
   Paginated,
@@ -48,6 +48,7 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
     AppPaginator,
     LucidePlus,
     LucideMessageSquare,
+    LucideSearch,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -62,6 +63,25 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
 
       <!-- Filter bar synced to URL -->
       <div class="mt-6 flex flex-wrap items-center gap-2">
+        <label class="relative w-full sm:w-56">
+          <span class="sr-only">{{ i18n.t('searchTasks') }}</span>
+          <svg
+            lucideSearch
+            class="size-4 absolute start-3 top-2.5 text-slate pointer-events-none"
+            [strokeWidth]="1.8"
+            aria-hidden="true"
+          ></svg>
+          <input
+            type="search"
+            class="tf-transition h-9 ps-9 pe-3 rounded-[var(--radius-control)] bg-panel border text-[13px] w-full hover:border-slate/50"
+            [class.border-flow]="!!filters().search"
+            [class.border-line]="!filters().search"
+            [placeholder]="i18n.t('searchTasks')"
+            [value]="filters().search ?? ''"
+            (input)="onSearchInput($any($event.target).value)"
+          />
+        </label>
+
         <label class="relative">
           <span class="sr-only">{{ i18n.t('status') }}</span>
           <select
@@ -318,6 +338,7 @@ export class TaskListPage {
     const assignedToId = unassigned ? undefined : (q.get('assignedToId') ?? undefined);
     const createdById = q.get('createdById') ?? undefined;
     const overdue = q.get('overdue') === 'true';
+    const search = q.get('q') ?? undefined;
     const page = Math.max(1, Number(q.get('page')) || 1);
     const pageSize = Number(q.get('pageSize')) || LIMITS.DEFAULT_PAGE_SIZE;
     return {
@@ -327,6 +348,7 @@ export class TaskListPage {
       assignedToId,
       createdById,
       overdue,
+      search,
       page,
       pageSize,
     };
@@ -340,7 +362,9 @@ export class TaskListPage {
 
   protected readonly hasActiveFilters = computed(() => {
     const f = this.filters();
-    return Boolean(f.status || f.priority || f.unassigned || f.assignedToId || f.createdById || f.overdue);
+    return Boolean(
+      f.status || f.priority || f.unassigned || f.assignedToId || f.createdById || f.overdue || f.search,
+    );
   });
 
   protected readonly tasks = httpResource<Paginated<TaskListItem>>(() => ({
@@ -391,7 +415,17 @@ export class TaskListPage {
     });
   }
 
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  protected onSearchInput(value: string): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      this.updateFilter('q', value.trim() || null);
+    }, 250);
+  }
+
   protected clearFilters(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {
@@ -401,6 +435,7 @@ export class TaskListPage {
         assignedToId: null,
         createdById: null,
         overdue: null,
+        q: null,
         page: null,
       },
       queryParamsHandling: 'merge',
