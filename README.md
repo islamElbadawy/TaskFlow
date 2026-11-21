@@ -122,11 +122,12 @@ src/
   TaskFlow.Domain/          Common/BaseEntity, Entities, Enums, Interfaces
   TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (dispatchers, results, ports)
   TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/ (incl. Email/), BackgroundJobs/
-  TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs
+  TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs, Dockerfile
+  TaskFlow.Web/             Angular 22.3 frontend (Tailwind CSS, SignalR, CDK Board), nginx.conf, Dockerfile
 docs/                       DATABASE.md (setup, seed data, testing), REALTIME.md (notifications, SignalR client), BUGFIXES.md
 postman/                    API test collection
 tests/                      TaskFlow.IntegrationTests (xUnit, WebApplicationFactory, Testcontainers)
-docker-compose.yml          Local PostgreSQL 17 and Mailpit (development mail catcher)
+docker-compose.yml          Full stack: PostgreSQL 17, Mailpit, TaskFlow.API, and TaskFlow.Web (Nginx)
 ```
 
 ---
@@ -243,27 +244,54 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 
 ## 🚀 How to Run
 
-Prerequisites: .NET 10 SDK and Docker Desktop. Full setup, the seeded accounts/tasks/comments/notifications
+### Option 1: Full Stack with Docker Compose (recommended)
+
+Prerequisite: Docker Desktop.
+
+```powershell
+# 1. Configure environment variables (set POSTGRES_PASSWORD and a 32+ char JWT_SECRET)
+Copy-Item .env.example .env
+
+# 2. Build and start all 4 services (postgres, mailpit, api, web)
+docker compose up -d --build
+
+# 3. Verify all services are running / healthy
+docker compose ps
+```
+
+- **Web App:** `http://localhost:4200` (Nginx serves the Angular SPA and reverse-proxies `/api/` and `/hubs/` WebSockets to `api:8080`)
+- **API Swagger UI:** `http://localhost:8080/swagger` (when `ASPNETCORE_ENVIRONMENT=Development`)
+- **API Health Check:** `http://localhost:8080/health`
+- **Mailpit Web UI:** `http://localhost:8025` (SMTP is enabled by default in Docker)
+
+### Option 2: Hybrid Local Development (host API + Web, Docker Postgres + Mailpit)
+
+Prerequisites: .NET 10 SDK, Node.js, and Docker Desktop. Full setup, the seeded accounts/tasks/comments/notifications
 and how to use them: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
 ```powershell
-# 1. Start PostgreSQL and Mailpit (first time: Copy-Item .env.example .env and set a password,
+# 1. Start only PostgreSQL and Mailpit (first time: Copy-Item .env.example .env and set POSTGRES_PASSWORD,
 #    then put the connection string and JWT secret in user-secrets, see docs/DATABASE.md)
-docker compose up -d
+docker compose up -d postgres mailpit
 
 # 2. Run the API (Development applies migrations and seeds the data on start)
 cd src\TaskFlow.API
 dotnet run --launch-profile https
 
-# 3. Open Swagger UI
-https://localhost:7103/swagger
+# 3. Run the Angular web app (in a separate terminal)
+cd src\TaskFlow.Web
+npm install
+npm start
 ```
+
+- **Web App:** `http://localhost:4200`
+- **Swagger UI:** `https://localhost:7103/swagger`
 
 Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`,
 `user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected until an Admin reactivates it).
 
-Email is off by default. To see the emails, run with `--Smtp:Enabled=true` (or set it in user-secrets) and open
-Mailpit at http://localhost:8025; see [docs/DATABASE.md](docs/DATABASE.md#410-deadline-reminders-and-email).
+When running the API directly on the host, email is off by default. To see emails in Mailpit (`http://localhost:8025`),
+run with `--Smtp:Enabled=true` (or set it in user-secrets); see [docs/DATABASE.md](docs/DATABASE.md#410-deadline-reminders-and-email).
 
 ## 🧪 Testing
 
