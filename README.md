@@ -299,3 +299,8 @@ run with `--Smtp:Enabled=true` (or set it in user-secrets); see [docs/DATABASE.m
 - **Postman:** import [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json) and run the whole collection in order (Collection Runner). It logs in every seeded account and checks auth, permissions, users and tasks.
 - **Database:** `docker exec -it taskflow-postgres psql -U taskflow -d taskflow`, or pgAdmin on `localhost:5433` (see [docs/DATABASE.md](docs/DATABASE.md)).
 - **Reset:** `dotnet run -- --Seed:ResetDatabase=true` in `src/TaskFlow.API` drops, migrates and reseeds the database.
+
+## ⚙️ CI / CD (GitHub Actions)
+
+- **CI (`.github/workflows/ci.yml`):** Runs on pushes and pull requests targeting `main`, executing parallel `.NET 10` (build + 111 Testcontainers integration tests) and `Angular 22.3` (ESLint, Vitest, production build) jobs.
+- **Automated Deployment (`.github/workflows/deploy.yml`):** On pushes to `main` (or manual dispatch), connects to the target server over SSH, pulls the latest `main`, and redeploys the full Docker Compose stack (`docker compose up -d --build --remove-orphans`).
