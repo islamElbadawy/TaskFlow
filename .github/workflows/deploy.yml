@@ -2,7 +2,7 @@ name: Deploy via SSH
 
 on:
   push:
-    branches: [main, chore/docker-full-stack]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
