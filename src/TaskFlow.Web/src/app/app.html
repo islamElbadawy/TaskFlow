@@ -1,8 +1,13 @@
 @if (!auth.ready()) {
-  <div class="min-h-screen grid place-items-center bg-paper">
-    <div class="flex flex-col items-center gap-3">
-      <app-brand-mark sizeClass="size-12" [draw]="true" />
-      <span class="display text-xl font-extrabold text-ink">TaskFlow</span>
+  <div class="min-h-screen grid place-items-center bg-paper" role="status" aria-live="polite">
+    <div class="flex flex-col items-center gap-4">
+      <div class="tf-loader-wrap">
+        <span class="tf-loader-ring" aria-hidden="true"></span>
+        <span class="tf-loader-ring tf-loader-ring-delay" aria-hidden="true"></span>
+        <app-brand-mark sizeClass="size-14 relative z-[1]" [loading]="true" />
+      </div>
+      <span class="display text-xl font-extrabold text-ink tracking-tight">TaskFlow</span>
+      <div class="tf-loader-rail" aria-hidden="true"></div>
     </div>
   </div>
 } @else {

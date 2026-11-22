@@ -251,7 +251,83 @@ select {
 
 @keyframes tf-draw {
   from {
-    stroke-dashoffset: 14;
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tf-bar-wave {
+  0%,
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  40% {
+    transform: scaleY(0.45);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scaleY(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes tf-halo {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.36);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.36);
+    opacity: 0;
+  }
+}
+
+@keyframes tf-rail-slide {
+  0% {
+    transform: translateX(-100%) scaleX(0.45);
+  }
+  50% {
+    transform: translateX(40%) scaleX(0.85);
+  }
+  100% {
+    transform: translateX(220%) scaleX(0.45);
+  }
+}
+
+@keyframes tf-rail-slide-rtl {
+  0% {
+    transform: translateX(100%) scaleX(0.45);
+  }
+  50% {
+    transform: translateX(-40%) scaleX(0.85);
+  }
+  100% {
+    transform: translateX(-220%) scaleX(0.45);
+  }
+}
+
+@keyframes tf-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes tf-shimmer-rtl {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }
 
@@ -343,9 +419,95 @@ select {
 }
 
 .tf-skel {
+  position: relative;
+  overflow: hidden;
   background: var(--color-sunk);
   border-radius: 8px;
-  animation: tf-pulse 1.4s ease-in-out infinite;
+}
+.tf-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-panel) 65%, transparent) 50%,
+    transparent 100%
+  );
+  animation: tf-shimmer 1.5s var(--ease-flow) infinite;
+}
+[dir='rtl'] .tf-skel::after {
+  animation-name: tf-shimmer-rtl;
+}
+
+/* ---- Brand mark draw & fancy splash loader ---- */
+.brand-mark-draw .tf-bar {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: tf-draw 560ms var(--ease-spring) forwards;
+}
+.brand-mark-draw .tf-bar-1 {
+  animation-delay: 0ms;
+}
+.brand-mark-draw .tf-bar-2 {
+  animation-delay: 110ms;
+}
+.brand-mark-draw .tf-bar-3 {
+  animation-delay: 220ms;
+}
+
+.brand-mark-loading .tf-bar {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: tf-bar-wave 1.15s var(--ease-flow) infinite;
+}
+.brand-mark-loading .tf-bar-1 {
+  animation-delay: 0ms;
+}
+.brand-mark-loading .tf-bar-2 {
+  animation-delay: 160ms;
+}
+.brand-mark-loading .tf-bar-3 {
+  animation-delay: 320ms;
+}
+
+.tf-loader-wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.tf-loader-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  border: 2px solid var(--color-flow);
+  animation: tf-halo 1.6s var(--ease-flow) infinite;
+  pointer-events: none;
+}
+.tf-loader-ring-delay {
+  animation-delay: 0.8s;
+}
+
+.tf-loader-rail {
+  width: 96px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-line);
+  overflow: hidden;
+  position: relative;
+}
+.tf-loader-rail::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 45%;
+  border-radius: 999px;
+  background: var(--color-flow);
+  animation: tf-rail-slide 1.35s var(--ease-flow) infinite;
+}
+[dir='rtl'] .tf-loader-rail::after {
+  animation-name: tf-rail-slide-rtl;
 }
 
 /* ---- View Transitions ---- */
