@@ -30,20 +30,27 @@ public class GetDashboardQueryHandler : IQueryHandler<GetDashboardQuery, Result<
     public async Task<Result<DashboardDto>> HandleAsync(GetDashboardQuery query,
         CancellationToken cancellationToken = default)
     {
-        if (_currentUserService.UserId is not { } userId)
+        if (!_currentUserService.TryGetActor(out var userId, out var role))
             return Result<DashboardDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
+        var isAdmin = role == UserRole.Admin;
         var tasks = _unitOfWork.TasksItems;
         var now = DateTime.UtcNow;
         var dueSoonEnd = now.Add(DueSoonWindow);
 
-        var allByStatus = await tasks.CountByAsync(null, t => t.Status, cancellationToken);
+        var allByStatus = await tasks.CountByAsync(
+            isAdmin ? null : t => t.CreatedByUserId == userId || t.AssignedToUserId == userId,
+            t => t.Status,
+            cancellationToken);
 
         var overdue = await tasks.CountAsync(
-            t => t.DueDate != null && t.DueDate < now && t.Status != TaskItemStatus.Done, cancellationToken);
+            t => (isAdmin || t.CreatedByUserId == userId || t.AssignedToUserId == userId)
+                 && t.DueDate != null && t.DueDate < now && t.Status != TaskItemStatus.Done,
+            cancellationToken);
 
         var dueSoon = await tasks.CountAsync(
-            t => t.DueDate != null && t.DueDate >= now && t.DueDate <= dueSoonEnd && t.Status != TaskItemStatus.Done,
+            t => (isAdmin || t.CreatedByUserId == userId || t.AssignedToUserId == userId)
+                 && t.DueDate != null && t.DueDate >= now && t.DueDate <= dueSoonEnd && t.Status != TaskItemStatus.Done,
             cancellationToken);
 
         var assignedByStatus = await tasks.CountByAsync(t => t.AssignedToUserId == userId, t => t.Status,

@@ -23,6 +23,9 @@ public sealed class DashboardTests(TaskFlowApiFactory factory)
 
         var dashboard = await DashboardAsync(user.Client);
 
+        Assert.Equal(new StatusCounts(0, 0, 0, 0), dashboard.Tasks);
+        Assert.Equal(0, dashboard.OverdueTasks);
+        Assert.Equal(0, dashboard.DueSoonTasks);
         Assert.Equal(new StatusCounts(0, 0, 0, 0), dashboard.MyAssignedTasks);
         Assert.Equal(0, dashboard.MyOpenCreatedTasks);
         Assert.Equal(0, dashboard.UnreadNotifications);
@@ -126,6 +129,20 @@ public sealed class DashboardTests(TaskFlowApiFactory factory)
 
         Assert.Equal(new[] { ids[0], ids[5], ids[4], ids[3], ids[2] }, dashboard.RecentTasks.Select(t => t.Id));
         Assert.Equal(6, dashboard.MyOpenCreatedTasks);
+    }
+
+    [Fact]
+    public async Task Admin_dashboard_counts_all_tasks_while_non_admin_counts_only_their_own()
+    {
+        var user = await factory.RegisterAsync("ScopedDash");
+        var admin = await factory.LoginAsync(SeedUsers.Admin);
+
+        var userDash = await DashboardAsync(user.Client);
+        var adminDash = await DashboardAsync(admin);
+
+        Assert.Equal(0, userDash.Tasks.Total);
+        Assert.True(adminDash.Tasks.Total > 0);
+        Assert.Equal(await TaskCountAsync(admin, ""), adminDash.Tasks.Total);
     }
 
     // ---- helpers ----

@@ -17,7 +17,7 @@ public sealed class CommentsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task List_returns_the_seeded_comments_oldest_first_with_author_names()
     {
-        var client = await factory.LoginAsync(SeedUsers.User2);
+        var client = await factory.LoginAsync(SeedUsers.User);
 
         var page = await ReadAsync<Page>(await client.GetAsync($"/api/tasks/{WriteDocsTask}/comments"));
 
@@ -30,6 +30,16 @@ public sealed class CommentsTests(TaskFlowApiFactory factory)
         Assert.Equal("Manager User", page.Items[1].UserName);
         var created = page.Items.Select(c => c.CreatedAt).ToList();
         Assert.Equal(created.Order().ToList(), created);
+
+        // A non-admin who is neither creator nor assignee gets no comments; Admin sees them all.
+        var outsiderPage = await ReadAsync<Page>(await (await factory.LoginAsync(SeedUsers.User2))
+            .GetAsync($"/api/tasks/{WriteDocsTask}/comments"));
+        Assert.Equal(0, outsiderPage.TotalCount);
+        Assert.Empty(outsiderPage.Items);
+
+        var adminPage = await ReadAsync<Page>(await (await factory.LoginAsync(SeedUsers.Admin))
+            .GetAsync($"/api/tasks/{WriteDocsTask}/comments"));
+        Assert.True(adminPage.TotalCount >= 2);
     }
 
     [Fact]
