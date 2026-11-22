@@ -14,43 +14,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script_stop: true
-          script: |
-            set -e
-            DEPLOY_DIR="${{ vars.DEPLOY_PATH }}"
-            if [ -z "$DEPLOY_DIR" ]; then
-              DEPLOY_DIR="$HOME/TaskFlow"
-            fi
-            PLAIN_URL="https://github.com/${{ github.repository }}.git"
-            AUTH_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          GH_REF: ${{ github.ref_name }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-            echo "==> [1/4] User: $(whoami) | Target dir: $DEPLOY_DIR"
-            if [ ! -d "$DEPLOY_DIR/.git" ]; then
-              echo "==> [2/4] Cloning repository into $DEPLOY_DIR..."
-              mkdir -p "$(dirname "$DEPLOY_DIR")"
-              git clone --branch "${{ github.ref_name }}" "$AUTH_URL" "$DEPLOY_DIR"
-              cd "$DEPLOY_DIR"
-              git remote set-url origin "$PLAIN_URL"
-            else
-              echo "==> [2/4] Updating existing repository in $DEPLOY_DIR..."
-              cd "$DEPLOY_DIR"
-              git fetch "$AUTH_URL" "${{ github.ref_name }}"
-              git checkout -B "${{ github.ref_name }}" FETCH_HEAD
-              git remote set-url origin "$PLAIN_URL"
-            fi
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
+            -o StrictHostKeyChecking=no \
+            -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            bash -se -- "$DEPLOY_PATH" "$GH_REPO" "$GH_REF" "$GH_TOKEN" << 'REMOTE_SCRIPT'
+          DEPLOY_DIR="$1"
+          GH_REPO="$2"
+          GH_REF="$3"
+          GH_TOKEN="$4"
 
-            echo "==> [3/4] Checking .env in $DEPLOY_DIR..."
-            if [ ! -f .env ]; then
-              echo "ERROR: .env not found in $DEPLOY_DIR. Copy .env.example to .env and set POSTGRES_PASSWORD and JWT_SECRET."
-              exit 1
-            fi
+          if [ -z "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/TaskFlow"
+          fi
+          PLAIN_URL="https://github.com/${GH_REPO}.git"
+          AUTH_URL="https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git"
 
-            echo "==> [4/4] Building and starting Docker Compose stack..."
-            docker compose up -d --build --remove-orphans
-            docker compose ps
+          echo "==> [1/4] User: $(whoami) | Target dir: $DEPLOY_DIR"
+          mkdir -p "$DEPLOY_DIR"
+          cd "$DEPLOY_DIR"
+
+          if [ ! -d .git ]; then
+            echo "==> [2/4] Initializing git repository in $DEPLOY_DIR..."
+            git init
+            git remote add origin "$PLAIN_URL"
+          else
+            echo "==> [2/4] Updating existing repository in $DEPLOY_DIR..."
+            git remote set-url origin "$PLAIN_URL"
+          fi
+
+          git fetch "$AUTH_URL" "$GH_REF"
+          git checkout -B "$GH_REF" FETCH_HEAD
+
+          echo "==> [3/4] Checking .env in $DEPLOY_DIR..."
+          if [ ! -f .env ]; then
+            echo "ERROR: .env not found in $DEPLOY_DIR. Copy .env.example to .env and set POSTGRES_PASSWORD and JWT_SECRET."
+            exit 1
+          fi
+
+          echo "==> [4/4] Building and starting Docker Compose stack..."
+          docker compose up -d --build --remove-orphans
+          docker compose ps
+          REMOTE_SCRIPT
