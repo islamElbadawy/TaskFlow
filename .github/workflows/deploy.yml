@@ -1,0 +1,42 @@
+name: Deploy via SSH
+
+on:
+  push:
+    branches: [main, chore/docker-full-stack]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Docker Stack to Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            DEPLOY_DIR="${{ vars.DEPLOY_PATH || '~/TaskFlow' }}"
+            DEPLOY_DIR="${DEPLOY_DIR/#\~/$HOME}"
+
+            if [ ! -d "$DEPLOY_DIR/.git" ]; then
+              mkdir -p "$(dirname "$DEPLOY_DIR")"
+              git clone "https://github.com/${{ github.repository }}.git" "$DEPLOY_DIR"
+            fi
+
+            cd "$DEPLOY_DIR"
+            git fetch origin "${{ github.ref_name }}"
+            git checkout "${{ github.ref_name }}"
+            git pull --ff-only origin "${{ github.ref_name }}"
+
+            if [ ! -f .env ]; then
+              echo "ERROR: .env not found in $DEPLOY_DIR. Copy .env.example to .env and set POSTGRES_PASSWORD and JWT_SECRET."
+              exit 1
+            fi
+
+            docker compose up -d --build --remove-orphans
+            docker compose ps
