@@ -19,7 +19,7 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '__DEFAULT__' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           GH_REF: ${{ github.ref_name }}
@@ -39,7 +39,7 @@ jobs:
           GH_REF="$3"
           GH_TOKEN="$4"
 
-          if [ -z "$DEPLOY_DIR" ]; then
+          if [ "$DEPLOY_DIR" = "__DEFAULT__" ] || [ -z "$DEPLOY_DIR" ]; then
             DEPLOY_DIR="$HOME/TaskFlow"
           fi
           PLAIN_URL="https://github.com/${GH_REPO}.git"
@@ -51,7 +51,7 @@ jobs:
 
           if [ ! -d .git ]; then
             echo "==> [2/4] Initializing git repository in $DEPLOY_DIR..."
-            git init
+            git init -b "$GH_REF"
             git remote add origin "$PLAIN_URL"
           else
             echo "==> [2/4] Updating existing repository in $DEPLOY_DIR..."

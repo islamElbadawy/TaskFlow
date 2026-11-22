@@ -55,3 +55,13 @@ node_modules/
 dist/
 .angular/
 
+# Local agent config & study/prototype docs
+.mcp.json
+docs/DOCKERIZATION_PLAN.md
+docs/DOCKER_AND_CI_GUIDE.md
+docs/DOCKER_AND_CI_STORYBOARD.md
+docs/docker-ci-style-reference.jpg
+docs/frontend-guide/
+docs/superpowers/
+docs/ui-explorations/
+
