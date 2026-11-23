@@ -95,6 +95,26 @@ public sealed class TasksTests(TaskFlowApiFactory factory)
         Assert.Contains(bobOwn, adminList);
     }
 
+    [Fact]
+    public async Task Non_admins_cannot_filter_tasks_by_assignee_403_while_admin_can()
+    {
+        var user = await factory.LoginAsync(SeedUsers.User);
+        var manager = await factory.LoginAsync(SeedUsers.Manager);
+        var admin = await factory.LoginAsync(SeedUsers.Admin);
+        var targetId = TaskFlow.Infrastructure.Data.Seeding.DataSeeder.UserIds.User;
+
+        foreach (var client in new[] { user, manager })
+        {
+            await (await client.GetAsync($"/api/tasks?assignedToId={targetId}"))
+                .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden", "Only Admins can filter tasks by assignee.");
+            await (await client.GetAsync("/api/tasks?unassigned=true"))
+                .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden", "Only Admins can filter tasks by assignee.");
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/tasks?assignedToId={targetId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/tasks?unassigned=true")).StatusCode);
+    }
+
     private static async Task<Guid> CreateTaskAsync(HttpClient client, string title, Guid? assignedToId = null)
     {
         var response = await client.PostAsJsonAsync("/api/tasks",
