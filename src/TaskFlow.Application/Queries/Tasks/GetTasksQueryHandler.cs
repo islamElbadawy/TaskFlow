@@ -28,6 +28,8 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
             return Result<PaginatedList<TaskListDto>>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         var isAdmin = actorRole == UserRole.Admin;
+        if (!isAdmin && (query.AssignedToId.HasValue || query.Unassigned))
+            return Result<PaginatedList<TaskListDto>>.Forbidden("Only Admins can filter tasks by assignee.");
 
         // Shape is validated by GetTasksQueryValidator; parse here only to get the typed values.
         TaskItemStatus? status = Enum.TryParse<TaskItemStatus>(query.Status, true, out var s) ? s : null;

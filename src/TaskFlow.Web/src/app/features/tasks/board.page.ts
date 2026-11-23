@@ -27,7 +27,7 @@ import {
   User,
 } from '../../core/api/models';
 import { AuthStore } from '../../core/auth/auth.store';
-import { canMoveTask } from '../../core/domain/permissions';
+import { canMoveTask, isAdmin } from '../../core/domain/permissions';
 import { TranslationService } from '../../core/i18n/translation.service';
 import { RealtimeClient } from '../../core/realtime/realtime-client';
 import { StaggerDirective } from '../../shared/motion/stagger.directive';
@@ -130,24 +130,26 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
           </select>
         </label>
 
-        <label class="relative">
-          <span class="sr-only">{{ i18n.t('assignee') }}</span>
-          <select
-            class="tf-transition h-9 px-3 rounded-[var(--radius-control)] bg-panel border text-[13px] hover:border-slate/50"
-            [class.border-flow]="!!assigneeFilterValue()"
-            [class.text-flow]="!!assigneeFilterValue()"
-            [class.font-bold]="!!assigneeFilterValue()"
-            [class.border-line]="!assigneeFilterValue()"
-            [value]="assigneeFilterValue()"
-            (change)="setAssigneeFilter(selectVal($event))"
-          >
-            <option value="">{{ i18n.t('assignee') }}: {{ i18n.t('anyone') }}</option>
-            <option value="unassigned">{{ i18n.t('unassigned') }}</option>
-            @for (u of activeUsers(); track u.id) {
-              <option [value]="u.id">{{ u.fullName }}</option>
-            }
-          </select>
-        </label>
+        @if (isAdmin()) {
+          <label class="relative">
+            <span class="sr-only">{{ i18n.t('assignee') }}</span>
+            <select
+              class="tf-transition h-9 px-3 rounded-[var(--radius-control)] bg-panel border text-[13px] hover:border-slate/50"
+              [class.border-flow]="!!assigneeFilterValue()"
+              [class.text-flow]="!!assigneeFilterValue()"
+              [class.font-bold]="!!assigneeFilterValue()"
+              [class.border-line]="!assigneeFilterValue()"
+              [value]="assigneeFilterValue()"
+              (change)="setAssigneeFilter(selectVal($event))"
+            >
+              <option value="">{{ i18n.t('assignee') }}: {{ i18n.t('anyone') }}</option>
+              <option value="unassigned">{{ i18n.t('unassigned') }}</option>
+              @for (u of activeUsers(); track u.id) {
+                <option [value]="u.id">{{ u.fullName }}</option>
+              }
+            </select>
+          </label>
+        }
 
         <label class="relative">
           <span class="sr-only">{{ i18n.t('createdBy') }}</span>
@@ -363,6 +365,7 @@ export class BoardPage implements OnInit, OnDestroy {
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  protected readonly isAdmin = computed(() => isAdmin(this.auth.user()));
   protected readonly statuses = TASK_STATUSES;
   protected readonly priorities = TASK_PRIORITIES;
   protected readonly openMenuTaskId = signal<string | null>(null);
