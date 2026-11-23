@@ -119,8 +119,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Add SignalR
 builder.Services.AddSignalR();
-// Register real-time notifier implementation (uses NotificationHub)
+// Register real-time notifier and active hub connection tracker (used by NotificationHub + NotificationService)
 builder.Services.AddSingleton<TaskFlow.Application.Common.Interfaces.IRealTimeNotifier, TaskFlow.API.Services.RealTimeNotifier>();
+builder.Services.AddSingleton<TaskFlow.Application.Common.Interfaces.IUserConnectionTracker, TaskFlow.API.Services.UserConnectionTracker>();
 
 var app = builder.Build();
 

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Infrastructure.Data.Seeding;
+using TaskFlow.Infrastructure.Services.Email;
 using Testcontainers.PostgreSql;
 
 namespace TaskFlow.IntegrationTests.Infrastructure;
@@ -47,6 +48,9 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["Seed:RunSmokeTestAndExit"] = "false",
             // Tests run the reminder logic themselves; a background run would add notifications at random moments.
             ["Reminders:Enabled"] = "false",
+            // Enable SMTP pipeline (backed by FakeEmailService) and disable background outbox worker so tests control retries.
+            ["Smtp:Enabled"] = "true",
+            ["Outbox:Enabled"] = "false",
             // The tests log in far more often than a person; RateLimitingTests lowers it on its own host.
             ["RateLimiting:Auth:PermitLimit"] = "100000"
         };
@@ -59,6 +63,8 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
         {
             services.RemoveAll<IEmailService>();
             services.AddSingleton<IEmailService>(Emails);
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Emails);
         });
     }
 

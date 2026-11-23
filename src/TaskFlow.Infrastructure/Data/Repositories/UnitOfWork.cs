@@ -13,6 +13,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<TaskItem> TasksItems { get; }
     public IRepository<Comment> Comments { get; }
     public IRepository<Notification> Notifications { get; }
+    public IRepository<OutboxMessage> OutboxMessages { get; }
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -21,6 +22,7 @@ public class UnitOfWork : IUnitOfWork
         TasksItems = new Repository<TaskItem>(_context);
         Comments = new Repository<Comment>(_context);
         Notifications = new Repository<Notification>(_context);
+        OutboxMessages = new Repository<OutboxMessage>(_context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

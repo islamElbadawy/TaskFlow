@@ -26,6 +26,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<Comment> Comments { get; set; }
     public DbSet<Notification> Notifications { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

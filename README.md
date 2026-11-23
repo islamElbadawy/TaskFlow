@@ -1,133 +1,158 @@
-# TaskFlow — Project Overview
+# TaskFlow (Taskaty) — Full-Stack Collaborative Task Management
 
-A collaborative task management backend built with **ASP.NET Core (.NET 10)**, following **Clean Architecture** and **CQRS** principles, with **PostgreSQL**, JWT authentication and SignalR.
+A full-stack collaborative task management platform built with **ASP.NET Core (.NET 10)**, **PostgreSQL 17**, **SignalR**, **MailKit**, and **Angular 22.3**, designed around **Clean Architecture**, **custom CQRS**, **Transactional Outbox**, and **real-time session-aware notifications**.
+
+> **New to this repo?** Jump to [Patterns & Engineering Concepts](#-patterns--engineering-concepts) for a map of every architectural pattern used and where to find it in the codebase, or [How to Run](#-how-to-run) to launch the entire stack in one Docker command.
+
+### Quick Navigation
+[Business Overview](#-business-overview) · [Patterns & Engineering Concepts](#-patterns--engineering-concepts) · [Architecture & Outbox Flow](#-architecture) · [Domain Model](#-domain-model) · [API Endpoints](#-api-endpoints) · [How to Run](#-how-to-run) · [Testing](#-testing) · [CI / CD](#-ci--cd-github-actions)
 
 ---
 
 ## 📌 Business Overview
 
 ### What is TaskFlow?
-TaskFlow is a backend system that lets teams manage work together: create tasks, assign them to teammates, track progress, discuss via comments, and stay informed through notifications and email alerts.
-
-### Who is it for?
-Small-to-medium teams (like Trello/Asana/Jira-lite) that need:
-- A central place to track work
-- Accountability (who created / who's assigned)
-- Visibility into deadlines and priorities
-- A history of discussion per task
+TaskFlow (branded **Taskaty** in the UI) lets small-to-medium teams manage work together — like a lightweight Trello/Asana/Jira: create tasks, assign them to teammates, drag cards across a shared Kanban board, discuss via comments, track progress on a dashboard, and receive reliable real-time push and email notifications.
 
 ### Core Business Capabilities
 
 | Capability | Description | State |
 |---|---|---|
-| **User Accounts** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Admins can deactivate accounts: no login, and existing tokens stop working | ✅ |
-| **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task permissions | ✅ |
-| **Board** | A team-shared card order in each status column: drag a task above another or to the end, across columns too | ✅ |
-| **Prioritization** | `Low` / `Medium` / `High` priority, optional due dates, overdue filter | ✅ |
-| **Collaboration** | Comment threads on each task | ✅ |
-| **Awareness** | In-app notifications (real-time via SignalR), email for assignments, deadline reminders a day before a task is due | ✅ |
-| **Oversight** | Dashboard: tasks by status, overdue, due within 7 days; my assigned/created tasks, unread notifications, recent tasks | ✅ |
-| **Access Control** | Role-based authorization; users manage only their own account, Admins manage everyone | ✅ |
+| **User Accounts & Revocation** | Register, log in, manage profile, change password. Roles: `User`, `Manager`, `Admin`. Admins can deactivate accounts — login is blocked and existing JWTs stop working immediately | ✅ |
+| **Task Lifecycle** | Create → Assign → Work (`Todo` → `InProgress` → `Done`) → Delete, with per-task ownership & role permissions | ✅ |
+| **Kanban Board** | Team-shared card ordering per status column: drag a task above another or to the end, within or across columns, broadcast live to all connected clients | ✅ |
+| **Prioritization & Deadlines** | `Low` / `Medium` / `High` priority, optional due dates, overdue filtering, and automatic 24-hour deadline reminders | ✅ |
+| **Collaboration** | Paged comment threads on each task with author/Admin edit & delete controls | ✅ |
+| **Reliable Notifications & Email** | In-app notifications stored atomically with the change, live SignalR push for online users, automatic session-open push flush for offline users, and transactional outbox email retries with exponential backoff | ✅ |
+| **Oversight Dashboard** | Aggregated task counts by status, overdue & due-within-7-days metrics, personal assigned/created counts, unread notifications, and recently updated tasks | ✅ |
+| **Access Control** | Role-based authorization (`User`, `Manager`, `Admin`) + resource ownership checks + per-IP auth rate limiting | ✅ |
 
 ### Example User Journey
-1. Manager logs in → gets a JWT token
-2. Manager creates a task and assigns it to a team member
-3. Team member lists their tasks (`GET /api/tasks?assignedToId=…`) and sees what's overdue
-4. Team member gets a notification (live over SignalR), moves the task to `InProgress`, adds comments
-5. Manager checks the Dashboard (`GET /api/dashboard`) for overall progress and overdue items
-6. Within 24 hours of the due date, the assignee gets a reminder, in the app and by email
+1. A **Manager** logs in and receives a JWT token.
+2. The Manager creates a task and assigns it to a teammate — the task, in-app `Notification`, and `Push` + `Email` `OutboxMessage` rows commit in **one PostgreSQL transaction**.
+3. If the teammate is **online**, they receive the notification immediately over SignalR (`ReceiveNotification`); if **offline**, it stays `Pending` and is automatically flushed the moment they open a new session.
+4. An assignment email is dispatched via MailKit (and automatically retried with exponential backoff if SMTP is temporarily down).
+5. The teammate moves the task on the Kanban board (`PATCH /api/tasks/{id}/move`), broadcasting `BoardChanged` to the team, and adds comments.
+6. Within 24 hours of the due date, the background reminder worker creates a single idempotent `DeadlineApproaching` notification + email.
+7. The Manager tracks overall progress and overdue items via `GET /api/dashboard`.
 
 ---
 
-## 🛠️ Tools & Technologies
+## 🧠 Patterns & Engineering Concepts
 
-### Platform
-- **ASP.NET Core Web API on .NET 10**, C# with nullable reference types, records and pattern matching
+Every major pattern and engineering concept used in this repository, **why** it is used, and **where** to inspect it:
 
-### Architecture & Patterns
-- **Clean Architecture** — Domain / Application / Infrastructure / API, dependencies pointing inward
-- **CQRS**, custom-built (no MediatR):
-  - `ICommand<T>` / `ICommandHandler<T,R>` and `IQuery<T>` / `IQueryHandler<T,R>`
-  - `ICommandDispatcher` / `IQueryDispatcher` run the request's validators, then its handler (a typed wrapper per
-    request type, built once and cached; a missing handler is a clear error)
-- **Repository + Unit of Work** — generic `IRepository<T>` with projected, no-tracking and paged reads; `ExecuteInTransactionAsync` for resilient transactions
-- **Result pattern** — handlers return `Result<T>` instead of throwing; a failure carries an error type (Validation, NotFound, Conflict, Unauthorized, Forbidden)
-- **ProblemDetails (RFC 9457)** — failures are returned as `application/problem+json` with the matching status code; unexpected exceptions are logged and returned as a 500 ProblemDetails
-- **FluentValidation** — validators run in the dispatchers, after the controller has set the route and token fields
-  (400 with field errors)
-- **Record DTOs** and `PaginatedList<T>` for paged responses
+### Architecture & Application Design
 
-### Data Access
-- **Entity Framework Core 10** (code-first, Fluent API configurations)
-- **PostgreSQL 17** in Docker Compose on port **5433**, via Npgsql with retry on transient failures
-- **snake_case** tables/columns, UTC `timestamptz` dates, time-ordered (v7) GUID keys
-- **EF Core migrations**, applied automatically in Development, plus idempotent seed data
-- Full guide: **[docs/DATABASE.md](docs/DATABASE.md)**
+| Pattern / Concept | How It's Used in TaskFlow | Where to Look |
+|---|---|---|
+| **Clean Architecture (Ports & Adapters)** | 4 layers (`Domain` → `Application` ← `Infrastructure` & `API`). Dependencies point strictly inward; `Application` defines interfaces (ports) and never references EF Core, MailKit, or ASP.NET Core | `src/TaskFlow.Domain`, `src/TaskFlow.Application`, `src/TaskFlow.Infrastructure`, `src/TaskFlow.API` |
+| **Custom CQRS (No MediatR)** | Explicit `ICommand<TResult>` / `ICommandHandler<TCommand, TResult>` and `IQuery<TResult>` / `IQueryHandler<TQuery, TResult>`. Custom `CommandDispatcher` and `QueryDispatcher` use cached typed `HandlerWrappers` (built once per request type) to invoke validation and handlers with zero reflection overhead per call | `src/TaskFlow.Application/Common/Dispatchers/`, `Commands/`, `Queries/` |
+| **Validation Pipeline** | **FluentValidation** validators run automatically inside the dispatchers *after* controllers populate route/JWT fields, returning structured field errors (`400`) before handlers execute | `src/TaskFlow.Application/Common/Dispatchers/RequestValidation.cs`, `Validators/` |
+| **Result Pattern** | Handlers return `Result<T>` instead of throwing exceptions for expected business outcomes, carrying a typed `ErrorType` (`Validation`, `NotFound`, `Conflict`, `Unauthorized`, `Forbidden`) | `src/TaskFlow.Application/Common/Results/Result.cs` |
+| **RFC 9457 ProblemDetails & Global Exception Handling** | `ResultExtensions` maps `Result<T>` failures to `application/problem+json` with matching HTTP status codes; `GlobalExceptionHandler` catches unexpected exceptions, logs them, and returns a safe `500` ProblemDetails without leaking internals | `src/TaskFlow.API/Common/ResultExtensions.cs`, `GlobalExceptionHandler.cs` |
+| **Options Pattern with Startup Validation** | Typed settings classes (`JwtSettings`, `SmtpSettings`, `ReminderSettings`, `OutboxSettings`) bound from configuration with `DataAnnotations` and `.ValidateOnStart()` so misconfiguration fails fast at boot | `src/TaskFlow.Application/Common/Settings/`, `src/TaskFlow.Infrastructure/Services/Email/SmtpSettings.cs` |
+| **Immutable Record DTOs & Pagination** | C# `record` types for request/response DTOs and a generic `PaginatedList<T>` for consistent paged responses | `src/TaskFlow.Application/DTOs/` |
 
-### Security
-- **JWT Bearer** authentication (self-issued; signing key in user-secrets); every authenticated request also checks
-  that the user still exists, is active and has the same security stamp as the token (one primary-key lookup), so
-  deactivation takes effect immediately and a password or role change signs out every existing token
-- **BCrypt** password hashing
-- Role-based (`[Authorize(Roles = "Admin")]`) and ownership checks in controllers
-- **Rate limiting** on login, register and change-password: a fixed window per client IP (10 per minute by default), then 429
-- **CORS** only for the origins in `Cors:AllowedOrigins` (none by default; local front-end ports in Development)
-- No known-vulnerable NuGet packages (`dotnet list package --vulnerable --include-transitive`)
+### Messaging, Reliability & Background Processing
 
-### API, Real-time & Docs
-- **ASP.NET Core controllers**, **Swagger UI** (Swashbuckle) in Development
-- **SignalR** typed hub at `/hubs/notifications` (JWT via `access_token` query string), pushes `ReceiveNotification` to the user with `Clients.User` — see [docs/REALTIME.md](docs/REALTIME.md)
-- **Email** with MailKit: queued in memory and sent by a background service, so SMTP problems never fail a request;
-  [Mailpit](https://mailpit.axllent.org/) in Docker Compose catches the emails in development
-- **Deadline reminders**: a `BackgroundService` with `PeriodicTimer` (every 15 minutes, idempotent)
-- **Postman collection** with assertions: [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json)
+| Pattern / Concept | How It's Used in TaskFlow | Where to Look |
+|---|---|---|
+| **Transactional Outbox Pattern** | `NotificationService.StageAsync` stages `Notification` and `OutboxMessage` rows (`Push`, plus `Email` for emailed types) in the **same PostgreSQL transaction** as the Task/Comment mutation (`IUnitOfWork.SaveChangesAsync`). Guarantees zero lost notifications or emails and ensures SignalR/SMTP outages never fail HTTP requests | `src/TaskFlow.Domain/Entities/OutboxMessage.cs`, `src/TaskFlow.Infrastructure/Services/NotificationService.cs`, `OutboxProcessor.cs` |
+| **PostgreSQL `FOR UPDATE SKIP LOCKED` Claiming** | `OutboxProcessor` claims batches of due `Email` or `Pending` `Push` rows inside a short transaction (`Status = Processing`) using `FOR UPDATE SKIP LOCKED`, then releases the DB transaction before performing network I/O (SMTP/SignalR) so multiple API instances never double-send | `src/TaskFlow.Infrastructure/Services/OutboxProcessor.cs` |
+| **Exponential Backoff & Dead-Lettering** | Failed email deliveries increment `AttemptCount`, capture `LastError`, and schedule `NextAttemptAt` with exponential backoff (`10m → 20m → 40m → 80m` via `Outbox:BaseRetryDelayMinutes`). After `MaxAttempts` (`5`), rows transition to `DeadLetter` and stop retrying | `src/TaskFlow.Domain/Entities/OutboxMessage.cs`, `OutboxProcessor.cs` |
+| **Active Connection Tracking & Session-Open Push Flush** | Singleton `UserConnectionTracker` (`ConcurrentDictionary<Guid, int>`) tracks live SignalR connections per user (safe across multiple open tabs). Online users get immediate SignalR push (`Sent`); offline users' `Push` rows stay `Pending` and flush automatically on `NotificationHub.OnConnectedAsync` (skipping deactivated users) | `src/TaskFlow.API/Services/UserConnectionTracker.cs`, `src/TaskFlow.API/Hubs/NotificationHub.cs` |
+| **Strongly-Typed SignalR Hub** | `Hub<INotificationClient>` at `/hubs/notifications` (JWT via `access_token` query string) pushes `ReceiveNotification` via `Clients.User(userId)` and broadcasts `BoardChanged` via `Clients.All` | `src/TaskFlow.API/Hubs/NotificationHub.cs`, `src/TaskFlow.API/Services/RealTimeNotifier.cs`, [docs/REALTIME.md](docs/REALTIME.md) |
+| **Periodic Background Workers (`BackgroundService` + `PeriodicTimer`)** | Scoped work inside `IServiceScopeFactory` loops: `OutboxProcessorWorker` (every 10 min: retries due emails + purges old `Sent` rows via `ExecuteDeleteAsync`) and `DeadlineReminderWorker` (every 15 min: idempotent reminders serialized via `SemaphoreSlim`) | `src/TaskFlow.Infrastructure/BackgroundJobs/OutboxProcessorWorker.cs`, `DeadlineReminderWorker.cs` |
+
+### Data Access & Persistence
+
+| Pattern / Concept | How It's Used in TaskFlow | Where to Look |
+|---|---|---|
+| **Repository & Unit of Work** | Generic `IRepository<T>` with read-only `AsNoTracking()` projections (`ListAsync`), SQL-translated paging, `GROUP BY` aggregations (`CountByAsync`), and `IUnitOfWork.ExecuteInTransactionAsync` wrapping EF Core's `CreateExecutionStrategy()` for retry-safe transactions | `src/TaskFlow.Domain/Interfaces/`, `src/TaskFlow.Infrastructure/Data/Repositories/` |
+| **UUIDv7 Primary Keys** | `BaseEntity.Id` uses `Guid.CreateVersion7()` (time-ordered GUIDs) so inserts append sequentially to PostgreSQL B-tree primary-key indexes instead of fragmenting them | `src/TaskFlow.Domain/Common/BaseEntity.cs` |
+| **EF Core Fluent API, `snake_case`, UTC & `jsonb`** | Dedicated `IEntityTypeConfiguration<T>` classes, `EFCore.NamingConventions` (`snake_case`), global UTC `DateTime` value converters (`timestamptz`), `jsonb` payloads on `outbox_messages`, composite indexes, and automatic `CreatedAt`/`UpdatedAt` auditing in `SaveChangesAsync` | `src/TaskFlow.Infrastructure/Data/Context/ApplicationDbContext.cs`, `Configurations/`, [docs/DATABASE.md](docs/DATABASE.md) |
+| **Idempotent Migrations & Seeding** | Code-first EF Core migrations applied automatically in Development alongside an idempotent `DataSeeder` (only inserts missing records); production applies migrations explicitly | `src/TaskFlow.Infrastructure/Data/Migrations/`, `Seeding/DataSeeder.cs` |
+
+### Security & Hardening
+
+| Pattern / Concept | How It's Used in TaskFlow | Where to Look |
+|---|---|---|
+| **JWT Bearer + Immediate Token Revocation (`SecurityStamp`)** | Self-issued JWTs (32+ byte secret from user-secrets/env). Every authenticated request validates `IsActive` and `SecurityStamp` via one primary-key lookup in `JwtBearerEvents.OnTokenValidated`, so account deactivation, password change, or role change immediately invalidates all existing tokens | `src/TaskFlow.API/Program.cs`, `src/TaskFlow.API/Common/ActiveUserTokenCheck.cs` |
+| **BCrypt Password Hashing** | Adaptive salted hashing for all user passwords | `src/TaskFlow.Infrastructure/Services/PasswordService.cs` |
+| **RBAC + Ownership Guards** | Role-based `[Authorize(Roles = "Admin")]` plus domain/application ownership checks (e.g., `TaskItem.CanBeEditedBy`, last-active-Admin protection) | `src/TaskFlow.Application/Commands/Tasks/TaskCommandGuards.cs`, `Users/UserCommandGuards.cs` |
+| **Fixed-Window Rate Limiting & Strict CORS** | Per-IP fixed-window rate limiter (`429` + `Retry-After`) on auth endpoints (`/login`, `/register`, `/change-password`); CORS allow-list driven strictly by `Cors:AllowedOrigins` | `src/TaskFlow.API/Common/RateLimiting.cs`, `Program.cs` |
+
+### Frontend (`TaskFlow.Web`) & DevOps
+
+| Pattern / Concept | How It's Used in TaskFlow | Where to Look |
+|---|---|---|
+| **Modern Angular 22.3 SPA** | Standalone components, Signals-based state management, Tailwind CSS v4, Angular CDK Kanban drag-and-drop board, `@microsoft/signalr` live updates, bilingual `en`/`ar` i18n, and Vitest + ESLint | `src/TaskFlow.Web/src/app/` |
+| **Reverse Proxy & Containerized Stack** | Multi-stage Dockerfiles; Nginx serves the Angular SPA and reverse-proxies `/api/` and `/hubs/` WebSockets to the .NET API inside Docker Compose (PostgreSQL 17, Mailpit, API, Web) | `docker-compose.yml`, `src/TaskFlow.API/Dockerfile`, `src/TaskFlow.Web/Dockerfile`, `nginx.conf` |
+| **Real-Dependency Integration Testing** | xUnit + `WebApplicationFactory<Program>` + **Testcontainers** (throw-away PostgreSQL 17 & Mailpit containers) testing full HTTP, EF Core migrations, SignalR, SMTP, and Outbox flows | `tests/TaskFlow.IntegrationTests/` |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────┐
-│ TaskFlow.API                                  │
-│ Controllers (Auth, Users, Tasks),             │
-│ NotificationHub, RealTimeNotifier, Program.cs │
-└──────────────────────┬───────────────────────┘
-                       │ depends on
-┌──────────────────────▼───────────────────────┐
-│ TaskFlow.Infrastructure                       │
-│ ApplicationDbContext, configurations,         │
-│ migrations, Repository/UnitOfWork, seeder,    │
-│ JWT / password / notification services        │
-│ email (MailKit), deadline reminder job        │
-└──────────────────────┬───────────────────────┘
-                       │ implements ports of
-┌──────────────────────▼───────────────────────┐
-│ TaskFlow.Application                          │
-│ Commands / Queries + handlers, validators,    │
-│ DTOs, dispatchers, Result<T>, ports           │
-│ (ICurrentUserService, IJwtService, ...)       │
-└──────────────────────┬───────────────────────┘
-                       │ depends on
-┌──────────────────────▼───────────────────────┐
-│ TaskFlow.Domain                               │
-│ Entities, enums, IRepository<T>, IUnitOfWork  │
-└───────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ TaskFlow.API                                             │
+│ Controllers (Auth, Users, Tasks, Comments, Notifications,│
+│ Dashboard, Reminders, Outbox), NotificationHub,          │
+│ RealTimeNotifier, UserConnectionTracker, Program.cs      │
+└────────────────────────────┬─────────────────────────────┘
+                             │ depends on
+┌────────────────────────────▼─────────────────────────────┐
+│ TaskFlow.Infrastructure                                  │
+│ ApplicationDbContext, Fluent configurations, migrations, │
+│ Repository/UnitOfWork, DataSeeder, NotificationService,  │
+│ OutboxProcessor, OutboxProcessorWorker, MailKit SMTP,    │
+│ DeadlineReminderWorker, JWT & BCrypt services            │
+└────────────────────────────┬─────────────────────────────┘
+                             │ implements ports of
+┌────────────────────────────▼─────────────────────────────┐
+│ TaskFlow.Application                                     │
+│ Commands / Queries + Handlers, FluentValidation, DTOs,   │
+│ Custom Dispatchers, Result<T>, Settings, Ports           │
+│ (INotificationService, IOutboxProcessor,                 │
+│  IUserConnectionTracker, IRealTimeNotifier, ...)         │
+└────────────────────────────┬─────────────────────────────┘
+                             │ depends on
+┌────────────────────────────▼─────────────────────────────┐
+│ TaskFlow.Domain                                          │
+│ BaseEntity (UUIDv7), Entities, Enums,                    │
+│ IRepository<T>, IUnitOfWork                              │
+└──────────────────────────────────────────────────────────┘
 ```
 
-**Key rule:** the Application layer defines interfaces (ports) and never references Infrastructure or ASP.NET Core; Infrastructure and API implement them.
+### Transactional Outbox & Delivery Flow
 
-### Project layout
+```mermaid
+flowchart TD
+    Cmd["Task / Comment / Reminder Handler"] -->|"StageAsync()"| UoW["Single PostgreSQL Transaction (SaveChangesAsync)"]
+    UoW --> T1["tasks / comments"]
+    UoW --> T2["notifications (In-App history)"]
+    UoW --> T3["outbox_messages (Push + Email, Status = Pending)"]
+
+    T3 -->|"Push: User online"| FastPush["Immediate SignalR Push -> Sent"]
+    T3 -->|"Push: User offline -> opens session\nNotificationHub.OnConnectedAsync()"| HubFlush["Flush Pending Push rows for UserId -> Sent\n(skips deactivated users)"]
+    T3 -->|"Email: Fast-path or 10-min\nOutboxProcessorWorker"| Mail["MailKit SMTP\nSuccess -> Sent | Fail -> Exponential Backoff -> DeadLetter"]
+```
+
+### Project Layout
+
 ```
 src/
-  TaskFlow.Domain/          Common/BaseEntity, Entities, Enums, Interfaces
-  TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (dispatchers, results, ports)
-  TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/ (incl. Email/), BackgroundJobs/
-  TaskFlow.API/             Common/ (ProblemDetails mapping, exception handler), Controllers/, Hubs/, Services/, Program.cs, Dockerfile
-  TaskFlow.Web/             Angular 22.3 frontend (Tailwind CSS, SignalR, CDK Board), nginx.conf, Dockerfile
-docs/                       DATABASE.md (setup, seed data, testing), REALTIME.md (notifications, SignalR client), BUGFIXES.md
-postman/                    API test collection
-tests/                      TaskFlow.IntegrationTests (xUnit, WebApplicationFactory, Testcontainers)
-docker-compose.yml          Full stack: PostgreSQL 17, Mailpit, TaskFlow.API, and TaskFlow.Web (Nginx)
+  TaskFlow.Domain/          Common/BaseEntity (UUIDv7), Entities/, Enums/, Interfaces/
+  TaskFlow.Application/     Commands/, Queries/, Validators/, DTOs/, Common/ (Dispatchers, Email, Notifications, Reminders, Results, Settings, Interfaces)
+  TaskFlow.Infrastructure/  Data/ (Context, Configurations, Migrations, Repositories, Seeding), Services/ (incl. OutboxProcessor, Email/), BackgroundJobs/
+  TaskFlow.API/             Common/ (ProblemDetails, ExceptionHandler, RateLimiting, ActiveUserTokenCheck), Controllers/, Hubs/, Services/, Program.cs, Dockerfile
+  TaskFlow.Web/             Angular 22.3 frontend (Signals, Tailwind CSS v4, CDK Board, SignalR, i18n), nginx.conf, Dockerfile
+docs/                       DATABASE.md, REALTIME.md, BUGFIXES.md, DOCKER_AND_CI_GUIDE.md
+postman/                    TaskFlow.postman_collection.json (automated assertions)
+tests/                      TaskFlow.IntegrationTests (120 tests: xUnit, WebApplicationFactory, Testcontainers)
+docker-compose.yml          Full stack: PostgreSQL 17, Mailpit, TaskFlow.API, TaskFlow.Web (Nginx)
 ```
 
 ---
@@ -135,84 +160,87 @@ docker-compose.yml          Full stack: PostgreSQL 17, Mailpit, TaskFlow.API, an
 ## 📂 Domain Model
 
 ```
-users              tasks                   comments          notifications
-├─ id              ├─ id                   ├─ id             ├─ id
-├─ first_name      ├─ title                ├─ content        ├─ user_id (FK)
-├─ last_name       ├─ description          ├─ task_id (FK)   ├─ message
-├─ email (unique)  ├─ status               ├─ user_id (FK)   ├─ type
-├─ password_hash   ├─ priority             ├─ created_at     ├─ is_read
-├─ role            ├─ due_date             └─ updated_at     ├─ related_task_id (FK)
-├─ is_active       ├─ position                               ├─ created_at
-├─ created_at      ├─ created_by_user_id (FK)                └─ updated_at
-└─ updated_at      ├─ assigned_to_user_id (FK)
-                   ├─ created_at
-                   └─ updated_at
+users               tasks                    comments          notifications           outbox_messages
+├─ id (UUIDv7)      ├─ id (UUIDv7)           ├─ id (UUIDv7)    ├─ id (UUIDv7)          ├─ id (UUIDv7)
+├─ first_name       ├─ title                 ├─ content        ├─ user_id (FK)         ├─ channel (Push|Email)
+├─ last_name        ├─ description           ├─ task_id (FK)   ├─ message              ├─ status (Pending|Processing|Sent|DeadLetter)
+├─ email (unique)   ├─ status                ├─ user_id (FK)   ├─ type                 ├─ recipient_user_id
+├─ password_hash    ├─ priority              ├─ created_at     ├─ is_read              ├─ notification_id (FK, SET NULL)
+├─ role             ├─ due_date              └─ updated_at     ├─ related_task_id (FK) ├─ payload_json (jsonb)
+├─ is_active        ├─ position                                ├─ created_at           ├─ attempt_count / max_attempts
+├─ security_stamp   ├─ created_by_user_id (FK)                 └─ updated_at           ├─ next_attempt_at
+├─ created_at       ├─ assigned_to_user_id (FK)                                        ├─ processed_at
+└─ updated_at       ├─ created_at                                                      ├─ last_error
+                    └─ updated_at                                                      ├─ created_at / updated_at
 ```
-Enums are stored as text: status `Todo | InProgress | Done`, priority `Low | Medium | High`,
-role `User | Manager | Admin`, notification type `TaskAssigned | TaskUpdated | TaskCompleted | CommentAdded | DeadlineApproaching`.
-Deleting a task deletes its comments (cascade) and keeps its notifications with `related_task_id` set to null.
-`position` is the task's place in its status column (0 = top, index on `(status, position)`); only the order
-matters, so the gap a deleted task leaves is fine.
+
+- **Enums stored as text:** `status` (`Todo | InProgress | Done`), `priority` (`Low | Medium | High`), `role` (`User | Manager | Admin`), `notification_type` (`TaskAssigned | TaskUpdated | TaskCompleted | CommentAdded | DeadlineApproaching`), `outbox_channel` (`Push | Email`), `outbox_status` (`Pending | Processing | Sent | DeadLetter`).
+- **Referential integrity:** Deleting a task cascades to its comments and sets `notifications.related_task_id = NULL` (preserving history). Deleting a notification sets `outbox_messages.notification_id = NULL`.
+- **Composite indexes:** `(status, position)` on `tasks` for board ordering; `(user_id, is_read)` on `notifications`; `(channel, status, next_attempt_at)` and `(recipient_user_id, channel, status)` on `outbox_messages`.
 
 ---
 
 ## 🔌 API Endpoints
 
-All endpoints except register/login need a `Bearer` token.
+All endpoints except `/health`, `/api/auth/register`, and `/api/auth/login` require a `Bearer` JWT token.
 
 | Method | Route | Who | Description |
 |---|---|---|---|
+| GET | `/health` | anyone | Health check (`{ "status": "ok" }`) |
 | POST | `/api/auth/register` | anyone | Create an account (role `User`) |
 | POST | `/api/auth/login` | anyone | Get a JWT (inactive accounts are rejected) |
-| POST | `/api/auth/change-password` | logged in | Change own password; signs out every session, so log in again with the new password |
-| GET | `/api/users` | logged in | List users (each with `isActive`); `?isActive=true\|false` |
+| POST | `/api/auth/change-password` | logged in | Change own password; rotates `SecurityStamp` to sign out all existing sessions |
+| GET | `/api/users` | logged in | List users (with `isActive`); `?isActive=true\|false` |
 | GET | `/api/users/me` | logged in | Current user |
 | GET | `/api/users/{id}` | logged in | One user |
 | PUT | `/api/users/{id}` | self or Admin | Update name/email |
-| PUT | `/api/users/{id}/role` | Admin | Change role (the last active Admin can't be demoted); the user's existing tokens stop working |
-| PATCH | `/api/users/{id}/active` | Admin | Deactivate `{ "isActive": false }` or reactivate `true` (not yourself, not the last active Admin) |
-| DELETE | `/api/users/{id}` | self or Admin | Delete (not if the user created tasks) |
-| GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; `sort=createdAt` (default, newest first) or `sort=position` (board order: status, then position); paging `page`, `pageSize` |
+| PUT | `/api/users/{id}/role` | Admin | Change role (cannot demote last active Admin); revokes existing tokens |
+| PATCH | `/api/users/{id}/active` | Admin | Deactivate `{ "isActive": false }` or reactivate `true` (cannot deactivate self or last active Admin) |
+| DELETE | `/api/users/{id}` | self or Admin | Delete (blocked if the user created tasks) |
+| GET | `/api/tasks` | logged in | List tasks: filters `status`, `priority`, `assignedToId`, `unassigned`, `createdById`, `overdue`; `sort=createdAt\|position`; paging `page`, `pageSize` |
 | GET | `/api/tasks/{id}` | logged in | One task with names and comment count |
 | POST | `/api/tasks` | logged in | Create a task (creator = caller) |
 | PUT | `/api/tasks/{id}` | creator, Manager, Admin | Replace title, description, priority, due date, status, assignee |
-| PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` (the task goes to the end of the new column) |
-| PATCH | `/api/tasks/{id}/move` | creator, assignee, Manager, Admin | Board drag and drop: `{ "status": "Done", "beforeTaskId": "<guid>" }` puts the task directly above that task in the column, `null` at the end; a status change notifies like `PATCH .../status` |
+| PATCH | `/api/tasks/{id}/status` | creator, assignee, Manager, Admin | Change status: `{ "status": "InProgress" }` (appends to end of target column) |
+| PATCH | `/api/tasks/{id}/move` | creator, assignee, Manager, Admin | Board drag & drop: `{ "status": "Done", "beforeTaskId": "<guid>" }` (`null` = end of column) |
 | PATCH | `/api/tasks/{id}/assignee` | creator, Manager, Admin | Assign `{ "assignedToId": "<guid>" }` or unassign with `null` (active users only) |
-| DELETE | `/api/tasks/{id}` | creator, Admin | Delete a task (its comments too) |
-| GET | `/api/tasks/{taskId}/comments` | logged in | A task's comments, oldest first, with author names; paging `page`, `pageSize` |
-| POST | `/api/tasks/{taskId}/comments` | logged in | Add a comment `{ "content": "..." }` (1-1000 characters; author = caller) |
+| DELETE | `/api/tasks/{id}` | creator, Admin | Delete a task (cascades to comments) |
+| GET | `/api/tasks/{taskId}/comments` | logged in | Task comments, oldest first, with author names; paging `page`, `pageSize` |
+| POST | `/api/tasks/{taskId}/comments` | logged in | Add a comment `{ "content": "..." }` (1–1000 chars; author = caller) |
 | PUT | `/api/comments/{id}` | author | Edit a comment |
 | DELETE | `/api/comments/{id}` | author, Admin | Delete a comment |
 | GET | `/api/notifications` | logged in (own) | Your notifications, newest first; `unread=true\|false`, `page`, `pageSize` |
 | GET | `/api/notifications/unread-count` | logged in (own) | Number of unread notifications |
 | PATCH | `/api/notifications/{id}/read` | logged in (own) | Mark one as read (404 if not yours) |
-| POST | `/api/notifications/read-all` | logged in (own) | Mark all as read; returns how many changed |
-| GET | `/api/dashboard` | logged in | All tasks by status, overdue and due-within-7-days counts; your assigned tasks by status, open tasks you created, unread notifications, your 5 most recently updated tasks |
-| POST | `/api/reminders/run` | Admin | Run the deadline reminders now (the background job runs them every 15 minutes); returns the reminded task ids |
-| WS | `/hubs/notifications` | logged in | SignalR: receive `ReceiveNotification` live ([docs/REALTIME.md](docs/REALTIME.md)) |
+| POST | `/api/notifications/read-all` | logged in (own) | Mark all as read; returns count updated |
+| GET | `/api/dashboard` | logged in | Team task counts by status, overdue & due-within-7-days, personal assigned/created counts, unread count, 5 recently updated tasks |
+| POST | `/api/reminders/run` | Admin | Trigger deadline reminders now (worker also runs every 15 min) |
+| POST | `/api/outbox/process` | Admin | Process due `Email` outbox rows now (worker also polls every 10 min) |
+| WS | `/hubs/notifications` | logged in | SignalR hub: receives `ReceiveNotification` (incl. offline flush on connect) and `BoardChanged` ([docs/REALTIME.md](docs/REALTIME.md)) |
 
-### Responses and errors
+### Responses & Errors
 
-Success: `200` with `{ "isSuccess": true, "data": { ... } }`. Failure: an RFC 9457 ProblemDetails
-(`application/problem+json`) whose `title` is the error type and `detail` the message:
+Success responses return `200 OK` with `{ "isSuccess": true, "data": { ... } }`. Failures return **RFC 9457 ProblemDetails** (`application/problem+json`):
 
 ```json
-{ "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5", "title": "NotFound", "status": 404,
-  "detail": "Task not found", "traceId": "00-..." }
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "NotFound",
+  "status": 404,
+  "detail": "Task not found",
+  "traceId": "00-..."
+}
 ```
 
 | Status | `title` | When |
 |---|---|---|
-| 400 | `Validation` (validator and binding errors add an `errors` object per field) | Invalid input: validator errors, malformed JSON, unknown priority/status/role/sort, unknown assignee, a `beforeTaskId` that is the task itself or not in the target column, wrong current password |
-| 401 | `Unauthorized` | Missing/invalid token, or the token of a deactivated/deleted user; failed login (same message for unknown email, wrong password and inactive account) |
-| 403 | `Forbidden` | Logged in but not allowed (e.g. a User editing another account, a non-Admin changing a role) |
-| 404 | `NotFound` | Unknown user or task |
-| 409 | `Conflict` | Email already registered/taken, deleting a user who created tasks, demoting or deleting the last active Admin, deactivating yourself or the last active Admin |
-| 429 | `TooManyRequests` | Too many logins/registrations from one IP; wait for the `Retry-After` seconds |
-| 500 | `Failure` | Unexpected error (logged; no internals in the response) |
-
-Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md).
+| `400` | `Validation` | FluentValidation or model-binding errors (includes `errors` per field), invalid enum/sort/assignee, wrong current password |
+| `401` | `Unauthorized` | Missing/invalid/revoked JWT, deactivated/deleted user, or failed login |
+| `403` | `Forbidden` | Authenticated but lacks role or resource ownership |
+| `404` | `NotFound` | Resource does not exist (or belongs to another user for private resources) |
+| `409` | `Conflict` | Duplicate email, deleting a user with created tasks, demoting/deactivating last active Admin |
+| `429` | `TooManyRequests` | Auth IP rate limit exceeded (check `Retry-After` header) |
+| `500` | `Failure` | Unexpected error (logged server-side; no internals leaked) |
 
 ---
 
@@ -220,33 +248,25 @@ Details, examples and the seeded test data: [docs/DATABASE.md](docs/DATABASE.md)
 
 | Area | Status |
 |---|---|
-| Domain entities, enums, EF configurations, indexes | ✅ Done |
-| PostgreSQL + migrations + seed data (Docker Compose) | ✅ Done |
-| Repository / Unit of Work (cancellation, projections, paging, resilient transactions) | ✅ Done |
-| CQRS dispatchers (cached typed wrappers, validation step), `Result<T>` with error types, FluentValidation | ✅ Done |
-| Hardening: no vulnerable packages, unused packages and dead code removed, CORS from configuration, login/register rate limiting | ✅ Done |
-| Auth: register, login, change password, JWT, inactive-user check (at login and on every request) | ✅ Done |
-| Users: list, get, update, role change, delete with permission checks | ✅ Done |
-| Tasks: create, list with filters/paging, get by id | ✅ Done |
-| Tasks: update, status change, assign/unassign, delete with per-task permissions | ✅ Done |
-| Task position: board order per status column (`PATCH /api/tasks/{id}/move`, `GET /api/tasks?sort=position`) | ✅ Done |
-| Comments: list (paged), add, edit (author), delete (author or Admin) | ✅ Done |
-| Notifications API + automatic notifications on task/comment events (saved with the change) | ✅ Done |
-| SignalR push (typed hub, `Clients.User`, after the save) | ✅ Done |
-| Dashboard (`GET /api/dashboard`, a handful of indexed count queries) | ✅ Done |
-| User activation / deactivation (`PATCH /api/users/{id}/active`, Admin) | ✅ Done |
-| Email (task assigned, deadline reminder) with MailKit, Mailpit for development | ✅ Done |
-| Deadline reminders (background job + `POST /api/reminders/run`, one reminder per due date) | ✅ Done |
-| Error types → 400/401/403/404/409 + ProblemDetails, global exception handler | ✅ Done |
-| Automated tests | ✅ 111 tests (xUnit + Testcontainers PostgreSQL and Mailpit): auth, users, user activation, token revocation, tasks, lifecycle, task position, comments, notifications + SignalR, dashboard, deadline reminders, email, validation, dispatchers, CORS, rate limiting |
+| Domain entities, enums, EF Fluent configurations, UUIDv7 keys, composite indexes | ✅ Done |
+| PostgreSQL 17 + EF Core migrations + idempotent seed data (Docker Compose) | ✅ Done |
+| Repository / Unit of Work (no-tracking projections, paging, `CountByAsync`, resilient transactions) | ✅ Done |
+| Custom CQRS dispatchers (cached typed wrappers, validation step), `Result<T>`, FluentValidation | ✅ Done |
+| Security: JWT + `SecurityStamp` revocation, BCrypt, RBAC/ownership guards, CORS, auth rate limiting | ✅ Done |
+| Users, Tasks, Kanban Board positioning (`PATCH /move`), Comments, Dashboard | ✅ Done |
+| Transactional Outbox (`outbox_messages`), `OutboxProcessor` (`FOR UPDATE SKIP LOCKED`), 10-min retry worker, exponential backoff → `DeadLetter`, retention cleanup | ✅ Done |
+| SignalR typed hub (`ReceiveNotification`, `BoardChanged`), `UserConnectionTracker`, automatic session-open push flush | ✅ Done |
+| Email (MailKit + Mailpit in Docker) & Deadline reminders (`BackgroundService` + `POST /api/reminders/run`) | ✅ Done |
+| Angular 22.3 frontend (`TaskFlow.Web`) with Kanban board, live SignalR updates, Tailwind CSS v4, and `en`/`ar` i18n | ✅ Done |
+| Automated tests | ✅ **120 integration tests** (xUnit + Testcontainers PostgreSQL 17 & Mailpit): auth, users, activation, token revocation, tasks, lifecycle, position, comments, notifications + SignalR, transactional outbox (push flush, backoff retry, dead-lettering, cleanup), dashboard, deadline reminders, email, validation, dispatchers, CORS, rate limiting |
 
 ---
 
 ## 🚀 How to Run
 
-### Option 1: Full Stack with Docker Compose (recommended)
+### Option 1: Full Stack with Docker Compose (Recommended)
 
-Prerequisite: Docker Desktop.
+Prerequisite: **Docker Desktop**.
 
 ```powershell
 # 1. Configure environment variables (set POSTGRES_PASSWORD and a 32+ char JWT_SECRET)
@@ -255,26 +275,24 @@ Copy-Item .env.example .env
 # 2. Build and start all 4 services (postgres, mailpit, api, web)
 docker compose up -d --build
 
-# 3. Verify all services are running / healthy
+# 3. Verify all services are healthy
 docker compose ps
 ```
 
-- **Web App:** `http://localhost:4200` (Nginx serves the Angular SPA and reverse-proxies `/api/` and `/hubs/` WebSockets to `api:8080`)
+- **Web App:** `http://localhost:4200` (Nginx serves Angular and reverse-proxies `/api/` and `/hubs/` WebSockets)
 - **API Swagger UI:** `http://localhost:8080/swagger` (when `ASPNETCORE_ENVIRONMENT=Development`)
 - **API Health Check:** `http://localhost:8080/health`
-- **Mailpit Web UI:** `http://localhost:8025` (SMTP is enabled by default in Docker)
+- **Mailpit Web UI:** `http://localhost:8025` (catches all outgoing emails in Docker)
 
-### Option 2: Hybrid Local Development (host API + Web, Docker Postgres + Mailpit)
+### Option 2: Hybrid Local Development (Host API + Web, Docker Postgres + Mailpit)
 
-Prerequisites: .NET 10 SDK, Node.js, and Docker Desktop. Full setup, the seeded accounts/tasks/comments/notifications
-and how to use them: **[docs/DATABASE.md](docs/DATABASE.md)**.
+Prerequisites: **.NET 10 SDK**, **Node.js**, and **Docker Desktop**. Full setup & seeded data details: **[docs/DATABASE.md](docs/DATABASE.md)**.
 
 ```powershell
-# 1. Start only PostgreSQL and Mailpit (first time: Copy-Item .env.example .env and set POSTGRES_PASSWORD,
-#    then put the connection string and JWT secret in user-secrets, see docs/DATABASE.md)
+# 1. Start PostgreSQL and Mailpit
 docker compose up -d postgres mailpit
 
-# 2. Run the API (Development applies migrations and seeds the data on start)
+# 2. Run the API (Development auto-applies migrations and seeds data on start)
 cd src\TaskFlow.API
 dotnet run --launch-profile https
 
@@ -287,20 +305,23 @@ npm start
 - **Web App:** `http://localhost:4200`
 - **Swagger UI:** `https://localhost:7103/swagger`
 
-Seeded logins (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`,
-`user2@taskflow.dev`, and the deactivated `inactive@taskflow.dev` (login is rejected until an Admin reactivates it).
+**Seeded logins** (password `P@ssw0rd`): `admin@taskflow.dev`, `manager@taskflow.dev`, `user@taskflow.dev`, `user2@taskflow.dev`, and deactivated `inactive@taskflow.dev`.
 
-When running the API directly on the host, email is off by default. To see emails in Mailpit (`http://localhost:8025`),
-run with `--Smtp:Enabled=true` (or set it in user-secrets); see [docs/DATABASE.md](docs/DATABASE.md#410-deadline-reminders-and-email).
+When running the API directly on the host, SMTP is disabled by default (`Smtp:Enabled=false`). To deliver emails to Mailpit (`http://localhost:8025`), pass `--Smtp:Enabled=true` or set it in user-secrets.
+
+---
 
 ## 🧪 Testing
 
-- **Integration tests:** `dotnet test` (Docker must be running). `tests/TaskFlow.IntegrationTests` starts the API in memory (`WebApplicationFactory`) against a throw-away PostgreSQL 17 container (Testcontainers) with migrations and seed data. It never touches the development database.
-- **Postman:** import [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json) and run the whole collection in order (Collection Runner). It logs in every seeded account and checks auth, permissions, users and tasks.
-- **Database:** `docker exec -it taskflow-postgres psql -U taskflow -d taskflow`, or pgAdmin on `localhost:5433` (see [docs/DATABASE.md](docs/DATABASE.md)).
-- **Reset:** `dotnet run -- --Seed:ResetDatabase=true` in `src/TaskFlow.API` drops, migrates and reseeds the database.
+- **Backend integration tests (120 tests):** `dotnet test -c Release` (Docker must be running). Runs the real API in memory (`WebApplicationFactory<Program>`) against throw-away PostgreSQL 17 and Mailpit containers via Testcontainers — never touches your local dev database.
+- **Frontend tests & lint:** inside `src/TaskFlow.Web`, run `npm test` (Vitest) and `npm run lint` (ESLint).
+- **Postman collection:** import [postman/TaskFlow.postman_collection.json](postman/TaskFlow.postman_collection.json) and run with Collection Runner.
+- **Database shell:** `docker exec -it taskflow-postgres psql -U taskflow -d taskflow` (or connect on `localhost:5433`).
+- **Reset dev DB:** `dotnet run -- --Seed:ResetDatabase=true` in `src/TaskFlow.API`.
+
+---
 
 ## ⚙️ CI / CD (GitHub Actions)
 
-- **CI (`.github/workflows/ci.yml`):** Runs on pushes and pull requests targeting `main`, executing parallel `.NET 10` (build + 111 Testcontainers integration tests) and `Angular 22.3` (ESLint, Vitest, production build) jobs.
-- **Automated Deployment (`.github/workflows/deploy.yml`):** On pushes to `main` (or manual dispatch), connects to the target server over SSH, pulls the latest `main`, and redeploys the full Docker Compose stack (`docker compose up -d --build --remove-orphans`).
+- **CI (`.github/workflows/ci.yml`):** Runs on pushes and pull requests to `main`, executing parallel `.NET 10` (build + 120 Testcontainers integration tests) and `Angular 22.3` (ESLint, Vitest, production build) jobs.
+- **Automated Deployment (`.github/workflows/deploy.yml`):** On pushes to `main` (or manual dispatch), connects to the target server over SSH, pulls `main`, and redeploys the Docker Compose stack (`docker compose up -d --build --remove-orphans`).
