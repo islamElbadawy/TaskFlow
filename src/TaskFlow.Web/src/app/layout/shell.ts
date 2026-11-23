@@ -72,7 +72,7 @@ import { AppPrefs } from '../shared/ui/prefs';
         <div class="max-w-6xl mx-auto px-4 md:px-8 h-16 flex items-center gap-6">
           <a routerLink="/dashboard" class="flex items-center gap-2.5 shrink-0">
             <app-brand-mark sizeClass="size-8" />
-            <span class="display text-xl font-extrabold">TaskFlow</span>
+            <span class="display text-xl font-extrabold">Taskaty</span>
           </a>
 
           <nav

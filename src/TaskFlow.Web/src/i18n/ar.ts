@@ -222,7 +222,7 @@ export const AR = {
   passwordMismatch: 'كلمتا المرور غير متطابقتين.',
   emailInvalid: 'أدخل بريدًا إلكترونيًا صحيحًا.',
   emailTaken: 'هذا البريد مسجّل بالفعل.',
-  welcomeToast: 'مرحبًا بك في TaskFlow',
+  welcomeToast: 'مرحبًا بك في Taskaty',
 
   // Notifications
   filterAll: 'الكل',
