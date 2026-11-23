@@ -15,7 +15,7 @@ import {
 } from '../../core/api/models';
 import { buildTaskHttpParams } from '../../core/api/tasks.api';
 import { AuthStore } from '../../core/auth/auth.store';
-import { isAdmin } from '../../core/domain/permissions';
+import { canCreateTask, isAdmin } from '../../core/domain/permissions';
 import { TranslationService } from '../../core/i18n/translation.service';
 import { StaggerDirective } from '../../shared/motion/stagger.directive';
 import { TaskHeroService } from '../../shared/motion/task-hero.service';
@@ -57,10 +57,12 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
     <section appStagger>
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <h1 class="display text-3xl font-extrabold" tabindex="-1">{{ i18n.t('allTasks') }}</h1>
-        <a routerLink="/tasks/new" appButton>
-          <svg lucidePlus class="size-[18px]" [strokeWidth]="2" aria-hidden="true"></svg>
-          <span>{{ i18n.t('newTask') }}</span>
-        </a>
+        @if (mayCreate()) {
+          <a routerLink="/tasks/new" appButton>
+            <svg lucidePlus class="size-[18px]" [strokeWidth]="2" aria-hidden="true"></svg>
+            <span>{{ i18n.t('newTask') }}</span>
+          </a>
+        }
       </div>
 
       <!-- Filter bar synced to URL -->
@@ -206,7 +208,7 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
             } @else {
               <app-empty-state
                 [message]="i18n.t('emptyTasks')"
-                [actionLabel]="i18n.t('newTask')"
+                [actionLabel]="mayCreate() ? i18n.t('newTask') : null"
                 (action)="goToNewTask()"
               />
             }
@@ -329,6 +331,7 @@ export class TaskListPage {
   private readonly hero = inject(TaskHeroService);
 
   protected readonly isAdmin = computed(() => isAdmin(this.auth.user()));
+  protected readonly mayCreate = computed(() => canCreateTask(this.auth.user()));
   protected readonly statuses = TASK_STATUSES;
   protected readonly priorities = TASK_PRIORITIES;
 

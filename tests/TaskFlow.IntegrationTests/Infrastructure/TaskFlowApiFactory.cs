@@ -106,6 +106,26 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", data.Token);
         return new TestUser(data.User.Id, $"{firstName} {lastName}", data.Token, client, email);
     }
+
+    /// <summary>Creates a fresh Manager account via the Admin endpoint and logs it in, for tests that create tasks.</summary>
+    public async Task<TestUser> RegisterManagerAsync(string firstName, string lastName = "Tester")
+    {
+        const string password = TestUser.Password;
+        var email = $"test.{Guid.NewGuid():N}@taskflow.test";
+        var admin = await LoginAsync(SeedUsers.Admin);
+        var created = await admin.PostAsJsonAsync("/api/users",
+            new { firstName, lastName, email, password, role = "Manager" });
+        created.EnsureSuccessStatusCode();
+
+        var anonymous = CreateAnonymousClient();
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new { email, password });
+        login.EnsureSuccessStatusCode();
+        var data = (await login.Content.ReadFromJsonAsync<ApiResult<LoginData>>())!.Data!;
+
+        var client = CreateAnonymousClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", data.Token);
+        return new TestUser(data.User.Id, $"{firstName} {lastName}", data.Token, client, email);
+    }
 }
 
 /// <summary>A registered test account: its id, full name, JWT, a client that sends the JWT, and its email

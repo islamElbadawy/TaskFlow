@@ -42,6 +42,7 @@ export const routes: Routes = [
       {
         path: 'tasks/new',
         title: 'newTaskTitle',
+        canActivate: [roleGuard('Admin', 'Manager')],
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./features/tasks/task-form.page').then((m) => m.TaskFormPage),
       },

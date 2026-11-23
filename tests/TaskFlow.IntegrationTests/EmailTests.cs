@@ -11,7 +11,7 @@ public sealed class EmailTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Assigning_a_task_emails_the_assignee_with_text_and_encoded_html()
     {
-        var creator = await factory.RegisterAsync("Ally");
+        var creator = await factory.RegisterManagerAsync("Ally");
         var assignee = await factory.RegisterAsync("Ben");
         const string title = "Test: <b>bold</b> & \"quoted\"";
 
@@ -30,7 +30,7 @@ public sealed class EmailTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Only_assignments_send_email_not_updates_comments_or_self_assignment()
     {
-        var creator = await factory.RegisterAsync("Cleo");
+        var creator = await factory.RegisterManagerAsync("Cleo");
         var assignee = await factory.RegisterAsync("Dex");
 
         // Assigning yourself: no notification, so no email.
