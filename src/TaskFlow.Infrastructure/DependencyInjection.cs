@@ -53,6 +53,15 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddHostedService<DeadlineReminderWorker>();
 
+        // Transactional outbox: retries due Email outbox rows every Outbox:IntervalMinutes (default 10 min)
+        // and purges old Sent rows after Outbox:RetentionDays.
+        services.AddOptions<OutboxSettings>()
+            .BindConfiguration(OutboxSettings.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IOutboxProcessor, OutboxProcessor>();
+        services.AddHostedService<OutboxProcessorWorker>();
+
 
         return services;
     }
