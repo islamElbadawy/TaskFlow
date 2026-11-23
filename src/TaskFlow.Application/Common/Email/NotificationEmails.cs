@@ -31,7 +31,7 @@ public static class NotificationEmails
             $"{notificationMessage}.\r\n\r\n" +
             $"Task: {title}\r\n" +
             $"Due: {due}\r\n\r\n" +
-            "Open TaskFlow to see the task.\r\n";
+            "Open Taskaty to see the task.\r\n";
 
         var html =
             $"<p>Hi {Encode(toName)},</p>" +
@@ -40,7 +40,7 @@ public static class NotificationEmails
             $"<tr><td><strong>Task</strong></td><td>{Encode(title)}</td></tr>" +
             $"<tr><td><strong>Due</strong></td><td>{Encode(due)}</td></tr>" +
             "</table>" +
-            "<p>Open TaskFlow to see the task.</p>";
+            "<p>Open Taskaty to see the task.</p>";
 
         return new EmailMessage(toEmail, toName, subject, text, html);
     }

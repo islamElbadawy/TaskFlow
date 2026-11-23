@@ -32,7 +32,7 @@ public sealed class SmtpSettings
     public string FromAddress { get; set; } = "noreply@taskflow.dev";
 
     [Required]
-    public string FromName { get; set; } = "TaskFlow";
+    public string FromName { get; set; } = "Taskaty";
 
     [Range(1, 300)]
     public int TimeoutSeconds { get; set; } = 30;

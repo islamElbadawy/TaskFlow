@@ -20,9 +20,9 @@ export class TaskFlowTitleStrategy extends TitleStrategy {
     effect(() => {
       const dict = this.i18n.dict();
       if (this.lastKey) {
-        this.title.setTitle(`${dict[this.lastKey]} · TaskFlow`);
+        this.title.setTitle(`${dict[this.lastKey]} · Taskaty`);
       } else if (this.lastRaw) {
-        this.title.setTitle(`${this.lastRaw} · TaskFlow`);
+        this.title.setTitle(`${this.lastRaw} · Taskaty`);
       }
     });
   }
@@ -32,7 +32,7 @@ export class TaskFlowTitleStrategy extends TitleStrategy {
     if (!routeTitle) {
       this.lastKey = null;
       this.lastRaw = null;
-      this.title.setTitle('TaskFlow');
+      this.title.setTitle('Taskaty');
       return;
     }
 
@@ -40,17 +40,17 @@ export class TaskFlowTitleStrategy extends TitleStrategy {
     if (routeTitle in dict && typeof dict[routeTitle as TranslationKey] === 'string') {
       this.lastKey = routeTitle as StringKey;
       this.lastRaw = null;
-      this.title.setTitle(`${dict[this.lastKey]} · TaskFlow`);
+      this.title.setTitle(`${dict[this.lastKey]} · Taskaty`);
     } else {
       this.lastKey = null;
       this.lastRaw = routeTitle;
-      this.title.setTitle(`${routeTitle} · TaskFlow`);
+      this.title.setTitle(`${routeTitle} · Taskaty`);
     }
   }
 
   setDynamicTitle(raw: string): void {
     this.lastKey = null;
     this.lastRaw = raw;
-    this.title.setTitle(`${raw} · TaskFlow`);
+    this.title.setTitle(`${raw} · Taskaty`);
   }
 }

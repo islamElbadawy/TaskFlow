@@ -192,7 +192,7 @@ export const EN = {
   passwordMismatch: 'Passwords don’t match.',
   emailInvalid: 'Enter a valid email address.',
   emailTaken: 'This email is already registered.',
-  welcomeToast: 'Welcome to TaskFlow',
+  welcomeToast: 'Welcome to Taskaty',
 
   // Notifications
   filterAll: 'All',

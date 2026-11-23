@@ -12,7 +12,7 @@ import { BrandMark } from '../../../shared/ui/brand-mark';
     >
       <div class="flex items-center gap-3">
         <app-brand-mark sizeClass="size-9" [inverse]="true" [draw]="true" />
-        <span class="display text-2xl font-extrabold">TaskFlow</span>
+        <span class="display text-2xl font-extrabold">Taskaty</span>
       </div>
 
       <div class="mt-auto max-w-md relative z-10 pt-10">
