@@ -50,7 +50,9 @@ public class TasksController : ControllerBase
         return this.ToActionResult(result);
     }
 
+    /// <summary>Creates a task. Manager or Admin only (403 for regular Users).</summary>
     [HttpPost]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Create([FromBody] CreateTaskCommand command)
     {
         if (_currentUserService.UserId is not { } userId)

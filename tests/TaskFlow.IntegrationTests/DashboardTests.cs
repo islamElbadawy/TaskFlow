@@ -67,7 +67,7 @@ public sealed class DashboardTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Overdue_and_due_soon_count_only_open_tasks_in_their_window()
     {
-        var user = await factory.RegisterAsync("Owen");
+        var user = await factory.RegisterManagerAsync("Owen");
         var before = await DashboardAsync(user.Client);
 
         await CreateTaskAsync(user, "Test: overdue", due: DateTime.UtcNow.AddDays(-1));
@@ -90,7 +90,7 @@ public sealed class DashboardTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Personal_section_counts_assigned_created_and_unread()
     {
-        var alice = await factory.RegisterAsync("Alma");
+        var alice = await factory.RegisterManagerAsync("Alma");
         var bob = await factory.RegisterAsync("Boris");
 
         var mine = await CreateTaskAsync(alice, "Test: Alma's own", assignedToId: alice.Id);
@@ -119,7 +119,7 @@ public sealed class DashboardTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Recent_tasks_are_the_five_most_recently_updated()
     {
-        var user = await factory.RegisterAsync("Rita");
+        var user = await factory.RegisterManagerAsync("Rita");
         var ids = new List<Guid>();
         for (var i = 1; i <= 6; i++)
             ids.Add(await CreateTaskAsync(user, $"Test: recent {i}"));

@@ -1,5 +1,6 @@
 import { User } from '../api/models';
 import {
+  canCreateTask,
   canDeactivateUser,
   canDeleteComment,
   canDeleteTask,
@@ -27,6 +28,14 @@ describe('permissions', () => {
   const assignee = makeUser('u2', 'User');
   const outsider = makeUser('u3', 'User');
   const task = { createdById: creator.id, assignedToId: assignee.id };
+
+  it('allows only Manager and Admin to create a task', () => {
+    expect(canCreateTask(admin)).toBe(true);
+    expect(canCreateTask(manager)).toBe(true);
+    expect(canCreateTask(creator)).toBe(false);
+    expect(canCreateTask(outsider)).toBe(false);
+    expect(canCreateTask(null)).toBe(false);
+  });
 
   it('allows creator, Manager, and Admin to edit a task', () => {
     expect(canEditTask(task, creator)).toBe(true);

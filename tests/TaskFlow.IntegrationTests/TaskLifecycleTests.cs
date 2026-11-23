@@ -24,11 +24,11 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Creator_can_update_every_field_and_GET_shows_it()
     {
-        var user = await factory.LoginAsync(SeedUsers.User);
-        var task = await CreateTaskAsync(user, "Test: creator updates");
+        var creator = await factory.RegisterManagerAsync("Creator");
+        var task = await CreateTaskAsync(creator.Client, "Test: creator updates");
         var due = new DateTime(2030, 1, 15, 12, 0, 0, DateTimeKind.Utc);
 
-        var response = await user.PutAsJsonAsync($"/api/tasks/{task.Id}", new
+        var response = await creator.Client.PutAsJsonAsync($"/api/tasks/{task.Id}", new
         {
             title = "Test: creator updated",
             description = "new description",
@@ -49,14 +49,15 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
         Assert.Equal("Sam Taylor", updated.AssignedToName);
         Assert.NotNull(updated.UpdatedAt);
 
-        var reread = await ReadTaskAsync(await user.GetAsync($"/api/tasks/{task.Id}"));
+        var reread = await ReadTaskAsync(await creator.Client.GetAsync($"/api/tasks/{task.Id}"));
         Assert.Equal(updated, reread);
     }
 
     [Fact]
     public async Task Manager_and_admin_can_update_a_task_they_did_not_create()
     {
-        var task = await CreateTaskAsync(await factory.LoginAsync(SeedUsers.User), "Test: updated by others");
+        var creator = await factory.RegisterManagerAsync("Origin");
+        var task = await CreateTaskAsync(creator.Client, "Test: updated by others");
 
         foreach (var email in new[] { SeedUsers.Manager, SeedUsers.Admin })
         {
@@ -89,10 +90,10 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Update_with_unknown_status_is_400_validation()
     {
-        var user = await factory.LoginAsync(SeedUsers.User);
-        var task = await CreateTaskAsync(user, "Test: bad status");
+        var manager = await factory.LoginAsync(SeedUsers.Manager);
+        var task = await CreateTaskAsync(manager, "Test: bad status");
 
-        var response = await user.PutAsJsonAsync($"/api/tasks/{task.Id}", UpdateBody("Test: bad status") with { status = "Finished" });
+        var response = await manager.PutAsJsonAsync($"/api/tasks/{task.Id}", UpdateBody("Test: bad status") with { status = "Finished" });
 
         var problem = await response.ShouldBeProblemAsync(HttpStatusCode.BadRequest);
         Assert.Contains("Status", problem.Extensions["errors"]!.ToString());
@@ -151,10 +152,10 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Change_status_with_unknown_name_is_400()
     {
-        var user = await factory.LoginAsync(SeedUsers.User);
-        var task = await CreateTaskAsync(user, "Test: bad patch status");
+        var manager = await factory.LoginAsync(SeedUsers.Manager);
+        var task = await CreateTaskAsync(manager, "Test: bad patch status");
 
-        var response = await user.PatchAsJsonAsync($"/api/tasks/{task.Id}/status", new { status = "Archived" });
+        var response = await manager.PatchAsJsonAsync($"/api/tasks/{task.Id}/status", new { status = "Archived" });
 
         var problem = await response.ShouldBeProblemAsync(HttpStatusCode.BadRequest);
         Assert.Contains("Status", problem.Extensions["errors"]!.ToString());
@@ -194,20 +195,20 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Only_creator_or_admin_can_delete()
     {
-        var user = await factory.LoginAsync(SeedUsers.User);
-        var mine = await CreateTaskAsync(user, "Test: delete own");
-        var forAdmin = await CreateTaskAsync(user, "Test: deleted by admin");
+        var creator = await factory.RegisterManagerAsync("Deleter");
+        var mine = await CreateTaskAsync(creator.Client, "Test: delete own");
+        var forAdmin = await CreateTaskAsync(creator.Client, "Test: deleted by admin");
 
-        // A Manager may edit anyone's task but not delete it.
+        // Another Manager may edit anyone's task but not delete it.
         var manager = await factory.LoginAsync(SeedUsers.Manager);
         await (await manager.DeleteAsync($"/api/tasks/{mine.Id}"))
             .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden", "Only the task's creator or an Admin can delete this task.");
 
-        Assert.Equal(HttpStatusCode.OK, (await user.DeleteAsync($"/api/tasks/{mine.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await creator.Client.DeleteAsync($"/api/tasks/{mine.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await (await factory.LoginAsync(SeedUsers.Admin)).DeleteAsync($"/api/tasks/{forAdmin.Id}")).StatusCode);
 
-        await (await user.GetAsync($"/api/tasks/{mine.Id}")).ShouldBeProblemAsync(HttpStatusCode.NotFound);
-        await (await user.GetAsync($"/api/tasks/{forAdmin.Id}")).ShouldBeProblemAsync(HttpStatusCode.NotFound);
+        await (await creator.Client.GetAsync($"/api/tasks/{mine.Id}")).ShouldBeProblemAsync(HttpStatusCode.NotFound);
+        await (await creator.Client.GetAsync($"/api/tasks/{forAdmin.Id}")).ShouldBeProblemAsync(HttpStatusCode.NotFound);
     }
 
     [Fact]
