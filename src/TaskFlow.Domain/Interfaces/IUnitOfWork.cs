@@ -9,6 +9,7 @@ public interface IUnitOfWork
     IRepository<TaskItem> TasksItems { get; }
     IRepository<Comment> Comments { get; }
     IRepository<Notification> Notifications { get; }
+    IRepository<OutboxMessage> OutboxMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
