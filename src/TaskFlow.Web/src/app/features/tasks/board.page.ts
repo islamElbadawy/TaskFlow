@@ -27,7 +27,7 @@ import {
   User,
 } from '../../core/api/models';
 import { AuthStore } from '../../core/auth/auth.store';
-import { canMoveTask, isAdmin } from '../../core/domain/permissions';
+import { canCreateTask, canMoveTask, isAdmin } from '../../core/domain/permissions';
 import { TranslationService } from '../../core/i18n/translation.service';
 import { RealtimeClient } from '../../core/realtime/realtime-client';
 import { StaggerDirective } from '../../shared/motion/stagger.directive';
@@ -81,10 +81,12 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
     <section>
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <h1 class="display text-3xl font-extrabold" tabindex="-1">{{ i18n.t('board') }}</h1>
-        <a routerLink="/tasks/new" [state]="{ from: 'board' }" appButton>
-          <svg lucidePlus class="size-[18px]" [strokeWidth]="2" aria-hidden="true"></svg>
-          <span>{{ i18n.t('newTask') }}</span>
-        </a>
+        @if (mayCreate()) {
+          <a routerLink="/tasks/new" [state]="{ from: 'board' }" appButton>
+            <svg lucidePlus class="size-[18px]" [strokeWidth]="2" aria-hidden="true"></svg>
+            <span>{{ i18n.t('newTask') }}</span>
+          </a>
+        }
       </div>
 
       <p class="text-slate mt-1">
@@ -199,7 +201,7 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
       } @else if (store.isEmpty() && !store.hasActiveFilters()) {
         <app-empty-state
           [message]="i18n.t('emptyTasks')"
-          [actionLabel]="i18n.t('newTask')"
+          [actionLabel]="mayCreate() ? i18n.t('newTask') : null"
           (action)="goToNewTask()"
         />
       } @else {
@@ -366,6 +368,7 @@ export class BoardPage implements OnInit, OnDestroy {
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly isAdmin = computed(() => isAdmin(this.auth.user()));
+  protected readonly mayCreate = computed(() => canCreateTask(this.auth.user()));
   protected readonly statuses = TASK_STATUSES;
   protected readonly priorities = TASK_PRIORITIES;
   protected readonly openMenuTaskId = signal<string | null>(null);

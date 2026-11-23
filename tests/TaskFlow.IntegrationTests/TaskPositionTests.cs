@@ -26,7 +26,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Reorder_within_a_column_puts_the_task_above_its_new_neighbour()
     {
-        var owner = await factory.RegisterAsync("Ada");
+        var owner = await factory.RegisterManagerAsync("Ada");
         var a = await CreateTaskAsync(owner, "Test: reorder a");
         var b = await CreateTaskAsync(owner, "Test: reorder b");
         var c = await CreateTaskAsync(owner, "Test: reorder c");
@@ -45,7 +45,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Move_to_another_column_above_a_neighbour_and_both_columns_are_renumbered()
     {
-        var owner = await factory.RegisterAsync("Bert");
+        var owner = await factory.RegisterManagerAsync("Bert");
         var x = await CreateTaskAsync(owner, "Test: across x");
         var y = await CreateTaskAsync(owner, "Test: across y");
         await ReadTaskAsync(await MoveAsync(owner, y, "InProgress", null));
@@ -61,7 +61,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Move_with_a_null_beforeTaskId_puts_the_task_at_the_end_of_the_column()
     {
-        var owner = await factory.RegisterAsync("Cleo");
+        var owner = await factory.RegisterManagerAsync("Cleo");
         var first = await CreateTaskAsync(owner, "Test: to the end first");
         var second = await CreateTaskAsync(owner, "Test: to the end second");
 
@@ -74,7 +74,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task beforeTaskId_equal_to_the_task_itself_is_400()
     {
-        var owner = await factory.RegisterAsync("Dina");
+        var owner = await factory.RegisterManagerAsync("Dina");
         var task = await CreateTaskAsync(owner, "Test: before itself");
 
         var problem = await (await MoveAsync(owner, task, "Todo", task)).ShouldBeProblemAsync(HttpStatusCode.BadRequest, "Validation");
@@ -85,7 +85,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task beforeTaskId_in_another_column_or_unknown_is_400_and_nothing_moves()
     {
-        var owner = await factory.RegisterAsync("Emil");
+        var owner = await factory.RegisterManagerAsync("Emil");
         var task = await CreateTaskAsync(owner, "Test: wrong neighbour");
         var before = await GetTaskAsync(owner, task);
 
@@ -100,7 +100,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Unknown_status_is_400_and_unknown_task_is_404()
     {
-        var owner = await factory.RegisterAsync("Fynn");
+        var owner = await factory.RegisterManagerAsync("Fynn");
         var task = await CreateTaskAsync(owner, "Test: bad status");
 
         var problem = await (await MoveAsync(owner, task, "Blocked", null)).ShouldBeProblemAsync(HttpStatusCode.BadRequest, "Validation");
@@ -113,7 +113,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Only_creator_assignee_manager_or_admin_may_move_a_task()
     {
-        var creator = await factory.RegisterAsync("Gus");
+        var creator = await factory.RegisterManagerAsync("Gus");
         var assignee = await factory.RegisterAsync("Hedy");
         var outsider = await factory.RegisterAsync("Igor");
         var task = await CreateTaskAsync(creator, "Test: who may move", assignee.Id);
@@ -133,7 +133,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task A_status_change_through_move_notifies_like_PATCH_status_and_a_reorder_notifies_nobody()
     {
-        var creator = await factory.RegisterAsync("Jana");
+        var creator = await factory.RegisterManagerAsync("Jana");
         var assignee = await factory.RegisterAsync("Kurt");
         var viaStatus = await CreateTaskAsync(creator, "Test: via status", assignee.Id);
         var viaMove = await CreateTaskAsync(creator, "Test: via move", assignee.Id);
@@ -169,7 +169,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task A_new_task_lands_at_the_end_of_Todo()
     {
-        var owner = await factory.RegisterAsync("Lena");
+        var owner = await factory.RegisterManagerAsync("Lena");
         await CreateTaskAsync(owner, "Test: earlier");
 
         var created = await ReadTaskAsync(await owner.Client.PostAsJsonAsync("/api/tasks",
@@ -183,7 +183,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task PATCH_status_and_PUT_put_the_task_at_the_end_of_its_new_column()
     {
-        var owner = await factory.RegisterAsync("Milo");
+        var owner = await factory.RegisterManagerAsync("Milo");
         var task = await CreateTaskAsync(owner, "Test: status to the end");
 
         var patched = await ReadTaskAsync(await owner.Client.PatchAsJsonAsync($"/api/tasks/{task}/status", new { status = "InProgress" }));
@@ -207,7 +207,7 @@ public sealed class TaskPositionTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task sort_position_lists_by_status_then_position()
     {
-        var owner = await factory.RegisterAsync("Nora");
+        var owner = await factory.RegisterManagerAsync("Nora");
         var todo = await CreateTaskAsync(owner, "Test: sorted todo");
         await ReadTaskAsync(await MoveAsync(owner, await CreateTaskAsync(owner, "Test: sorted done"), "Done", null));
 

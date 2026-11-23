@@ -16,7 +16,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Assigning_creates_a_notification_for_the_assignee_not_the_actor()
     {
-        var creator = await factory.RegisterAsync("Alice");
+        var creator = await factory.RegisterManagerAsync("Alice");
         var assignee = await factory.RegisterAsync("Bob");
 
         var taskId = await CreateTaskAsync(creator, "Test: assigned to Bob", assignee.Id);
@@ -33,7 +33,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Reassigning_notifies_the_new_assignee_only()
     {
-        var creator = await factory.RegisterAsync("Carol");
+        var creator = await factory.RegisterManagerAsync("Carol");
         var first = await factory.RegisterAsync("Dan");
         var second = await factory.RegisterAsync("Erin");
         var taskId = await CreateTaskAsync(creator, "Test: reassign", first.Id);
@@ -49,7 +49,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Comment_notifies_creator_and_assignee_but_never_the_author()
     {
-        var creator = await factory.RegisterAsync("Frank");
+        var creator = await factory.RegisterManagerAsync("Frank");
         var assignee = await factory.RegisterAsync("Grace");
         var outsider = await factory.RegisterAsync("Heidi");
         var taskId = await CreateTaskAsync(creator, "Test: commented", assignee.Id);
@@ -70,7 +70,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Status_done_notifies_the_creator_and_status_changes_notify_the_assignee()
     {
-        var creator = await factory.RegisterAsync("Ivan");
+        var creator = await factory.RegisterManagerAsync("Ivan");
         var assignee = await factory.RegisterAsync("Judy");
         var taskId = await CreateTaskAsync(creator, "Test: completed", assignee.Id);
 
@@ -91,7 +91,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task One_notification_per_user_per_change_and_none_for_a_no_op_update()
     {
-        var owner = await factory.RegisterAsync("Kim");
+        var owner = await factory.RegisterManagerAsync("Kim");
         var manager = await factory.LoginAsync(SeedUsers.Manager);
         // Kim creates a task for herself: creator and assignee are the same person.
         var taskId = await CreateTaskAsync(owner, "Test: dedupe", owner.Id);
@@ -120,7 +120,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Update_by_someone_else_notifies_the_assignee()
     {
-        var creator = await factory.RegisterAsync("Leo");
+        var creator = await factory.RegisterManagerAsync("Leo");
         var assignee = await factory.RegisterAsync("Mia");
         var taskId = await CreateTaskAsync(creator, "Test: updated", assignee.Id);
 
@@ -142,7 +142,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Read_api_lists_counts_filters_and_marks_only_your_own()
     {
-        var creator = await factory.RegisterAsync("Nina");
+        var creator = await factory.RegisterManagerAsync("Nina");
         var me = await factory.RegisterAsync("Omar");
         var someoneElse = await factory.RegisterAsync("Pia");
         for (var i = 1; i <= 3; i++)
@@ -195,7 +195,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Deleting_a_task_keeps_its_notifications_without_the_link()
     {
-        var creator = await factory.RegisterAsync("Rita");
+        var creator = await factory.RegisterManagerAsync("Rita");
         var assignee = await factory.RegisterAsync("Sven");
         var taskId = await CreateTaskAsync(creator, "Test: deleted later", assignee.Id);
 
@@ -210,7 +210,7 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Assignee_receives_the_notification_over_SignalR_and_the_actor_does_not()
     {
-        var creator = await factory.RegisterAsync("Tara");
+        var creator = await factory.RegisterManagerAsync("Tara");
         var assignee = await factory.RegisterAsync("Uma");
 
         var received = new TaskCompletionSource<NotificationBody>(TaskCreationOptions.RunContinuationsAsynchronously);

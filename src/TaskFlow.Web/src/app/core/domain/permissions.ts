@@ -2,6 +2,11 @@ import { Comment, Task, TaskListItem, User } from '../api/models';
 
 type TaskLike = Pick<Task | TaskListItem, 'createdById' | 'assignedToId'>;
 
+export function canCreateTask(user: User | null): boolean {
+  if (!user) return false;
+  return user.role === 'Admin' || user.role === 'Manager';
+}
+
 export function canEditTask(task: TaskLike, user: User | null): boolean {
   if (!user) return false;
   if (user.role === 'Admin' || user.role === 'Manager') return true;

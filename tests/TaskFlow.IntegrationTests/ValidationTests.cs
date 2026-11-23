@@ -13,7 +13,7 @@ public sealed class ValidationTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Validator_failure_is_a_validation_problem_with_field_errors()
     {
-        var user = await factory.RegisterAsync("Vera");
+        var user = await factory.RegisterManagerAsync("Vera");
 
         var response = await user.Client.PostAsJsonAsync("/api/tasks",
             new { title = "Test: bad priority", description = "", priority = "Urgent" });
@@ -40,7 +40,7 @@ public sealed class ValidationTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Malformed_json_gets_the_same_validation_shape()
     {
-        var user = await factory.RegisterAsync("Xena");
+        var user = await factory.RegisterManagerAsync("Xena");
 
         var response = await user.Client.PostAsync("/api/tasks",
             new StringContent("{ \"title\": ", Encoding.UTF8, "application/json"));
