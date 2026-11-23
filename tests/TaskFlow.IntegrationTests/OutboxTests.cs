@@ -24,7 +24,7 @@ public sealed class OutboxTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Assigning_a_task_atomically_stages_notification_and_push_plus_email_outbox_rows()
     {
-        var creator = await factory.RegisterAsync("OutboxCreator");
+        var creator = await factory.RegisterManagerAsync("OutboxCreator");
         var assignee = await factory.RegisterAsync("OutboxAssignee");
 
         var taskId = await CreateTaskAsync(creator, "Outbox: atomic write", assignee.Id);
@@ -75,7 +75,7 @@ public sealed class OutboxTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Online_user_receives_immediate_push_and_offline_user_flushes_on_session_open()
     {
-        var creator = await factory.RegisterAsync("PushCreator");
+        var creator = await factory.RegisterManagerAsync("PushCreator");
         var onlineUser = await factory.RegisterAsync("OnlineUser");
         var offlineUser = await factory.RegisterAsync("OfflineUser");
 
@@ -174,7 +174,7 @@ public sealed class OutboxTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Failed_email_retries_with_backoff_and_recovers_when_smtp_returns()
     {
-        var creator = await factory.RegisterAsync("RetryCreator");
+        var creator = await factory.RegisterManagerAsync("RetryCreator");
         var assignee = await factory.RegisterAsync("RetryAssignee");
         var admin = await factory.LoginAsync(SeedUsers.Admin);
 
@@ -234,7 +234,7 @@ public sealed class OutboxTests(TaskFlowApiFactory factory)
     [Fact]
     public async Task Email_moves_to_dead_letter_after_exceeding_max_attempts()
     {
-        var creator = await factory.RegisterAsync("DeadLetterCreator");
+        var creator = await factory.RegisterManagerAsync("DeadLetterCreator");
         var assignee = await factory.RegisterAsync("DeadLetterAssignee");
 
         factory.Emails.FailEmailsTo(assignee.Email, "SMTP 550 mailbox unavailable");
