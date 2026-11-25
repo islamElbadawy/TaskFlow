@@ -18,6 +18,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
           SSH_PORT: ${{ secrets.SSH_PORT || 22 }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '__DEFAULT__' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,15 +30,21 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
-            -o StrictHostKeyChecking=no \
-            -o BatchMode=yes \
-            "${SSH_USER}@${SSH_HOST}" \
-            bash -se -- "$DEPLOY_PATH" "$GH_REPO" "$GH_REF" "$GH_TOKEN" << 'REMOTE_SCRIPT'
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            chmod 644 ~/.ssh/known_hosts
+            HOST_KEY_OPT="yes"
+          else
+            HOST_KEY_OPT="accept-new"
+          fi
+
+          # Pass GH_TOKEN over encrypted SSH stdin (never as a CLI argument visible in remote `ps`).
+          {
+            printf 'GH_TOKEN=%q\n' "$GH_TOKEN"
+            cat << 'REMOTE_SCRIPT'
           DEPLOY_DIR="$1"
           GH_REPO="$2"
           GH_REF="$3"
-          GH_TOKEN="$4"
 
           if [ "$DEPLOY_DIR" = "__DEFAULT__" ] || [ -z "$DEPLOY_DIR" ]; then
             DEPLOY_DIR="$HOME/TaskFlow"
@@ -71,3 +78,8 @@ jobs:
           docker compose up -d --build --remove-orphans
           docker compose ps
           REMOTE_SCRIPT
+          } | ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" \
+            -o "StrictHostKeyChecking=${HOST_KEY_OPT}" \
+            -o BatchMode=yes \
+            "${SSH_USER}@${SSH_HOST}" \
+            bash -se -- "$DEPLOY_PATH" "$GH_REPO" "$GH_REF"
