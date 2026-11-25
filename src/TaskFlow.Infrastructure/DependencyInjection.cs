@@ -36,15 +36,12 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        // Email: queued in memory and sent over SMTP by a background service; off unless Smtp:Enabled is true.
+        // Email: delivered asynchronously via the transactional outbox over MailKit SMTP (off unless Smtp:Enabled is true).
         services.AddOptions<SmtpSettings>()
             .BindConfiguration(SmtpSettings.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
-        services.AddSingleton<EmailQueue>();
-        services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<EmailQueue>());
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
-        services.AddHostedService<EmailDispatcher>();
 
         // Deadline reminders: a background job every Reminders:IntervalMinutes (on unless Reminders:Enabled is false).
         services.AddOptions<ReminderSettings>()
@@ -53,12 +50,12 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddHostedService<DeadlineReminderWorker>();
 
-        // Transactional outbox: retries due Email outbox rows every Outbox:IntervalMinutes (default 10 min)
-        // and purges old Sent rows after Outbox:RetentionDays.
+        // Transactional outbox: sends staged emails asynchronously, retries with backoff, and purges old Sent rows.
         services.AddOptions<OutboxSettings>()
             .BindConfiguration(OutboxSettings.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddSingleton<OutboxSignal>();
         services.AddScoped<IOutboxProcessor, OutboxProcessor>();
         services.AddHostedService<OutboxProcessorWorker>();
 

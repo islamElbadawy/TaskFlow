@@ -45,7 +45,6 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
             ["ConnectionStrings:DefaultConnection"] = ConnectionString,
             ["JwtSettings:Secret"] = TestJwtSecret,
             ["Seed:ResetDatabase"] = "false",
-            ["Seed:RunSmokeTestAndExit"] = "false",
             // Tests run the reminder logic themselves; a background run would add notifications at random moments.
             ["Reminders:Enabled"] = "false",
             // Enable SMTP pipeline (backed by FakeEmailService) and disable background outbox worker so tests control retries.
@@ -61,8 +60,6 @@ public sealed class TaskFlowApiFactory : WebApplicationFactory<Program>, IAsyncL
 
         builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IEmailService>();
-            services.AddSingleton<IEmailService>(Emails);
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Emails);
         });

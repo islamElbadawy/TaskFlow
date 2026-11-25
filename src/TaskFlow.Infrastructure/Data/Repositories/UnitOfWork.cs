@@ -29,20 +29,4 @@ public class UnitOfWork : IUnitOfWork
     {
         return _context.SaveChangesAsync(cancellationToken);
     }
-
-    // With EnableRetryOnFailure, a user-initiated transaction must run inside the execution strategy so the
-    // whole unit (begin, work, commit) is retried together (eShop's ResilientTransaction pattern).
-    public Task<TResult> ExecuteInTransactionAsync<TResult>(
-        Func<CancellationToken, Task<TResult>> work,
-        CancellationToken cancellationToken = default)
-    {
-        var strategy = _context.Database.CreateExecutionStrategy();
-        return strategy.ExecuteAsync(async ct =>
-        {
-            await using var transaction = await _context.Database.BeginTransactionAsync(ct);
-            var result = await work(ct);
-            await transaction.CommitAsync(ct);
-            return result;
-        }, cancellationToken);
-    }
 }

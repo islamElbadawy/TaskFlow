@@ -46,8 +46,6 @@ public class TaskItem : BaseEntity
         DueDate = dueDate;
     }
 
-    public void ChangeStatus(TaskItemStatus status) => Status = status;
-
     /// <summary>Puts the task in the <paramref name="status"/> column at <paramref name="position"/>.</summary>
     public void MoveTo(TaskItemStatus status, int position)
     {
