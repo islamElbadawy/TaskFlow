@@ -14,6 +14,9 @@ public interface IOutboxProcessor
     /// <summary>Flushes all Pending Push outbox messages for a user on session open (skips deactivated users). Returns how many were marked Sent.</summary>
     Task<int> FlushPendingPushForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Resets rows stuck in Processing (e.g. after a crash) back to Pending. Returns how many were recovered.</summary>
+    Task<int> RecoverStuckMessagesAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Deletes Sent outbox rows older than <c>Outbox:RetentionDays</c>. Returns how many rows were deleted.</summary>
     Task<int> CleanupSentMessagesAsync(CancellationToken cancellationToken = default);
 }
