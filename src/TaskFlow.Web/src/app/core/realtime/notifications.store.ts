@@ -89,11 +89,12 @@ export class NotificationsStore {
   }
 
   private handleIncoming(notification: Notification): void {
+    const alreadySeen = this._recent().some((n) => n.id === notification.id);
     this._recent.update((list) => {
       const deduped = list.filter((n) => n.id !== notification.id);
       return [notification, ...deduped].slice(0, LIMITS.BELL_PREVIEW_COUNT);
     });
-    if (!notification.isRead) {
+    if (!notification.isRead && !alreadySeen) {
       this._unreadCount.update((c) => c + 1);
       this._badgeTick.update((v) => v + 1);
     }

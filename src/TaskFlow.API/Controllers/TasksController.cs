@@ -61,7 +61,7 @@ public class TasksController : ControllerBase
         command.CreatedById = userId;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
         if (result.IsSuccess && result.Data is not null)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(result.Data.Id, "created"));
+            await NotifyTaskBoardChangedAsync(result.Data, "created");
         return this.ToActionResult(result);
     }
 
@@ -72,8 +72,8 @@ public class TasksController : ControllerBase
     {
         command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (result.IsSuccess)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "updated"));
+        if (result.IsSuccess && result.Data is not null)
+            await NotifyTaskBoardChangedAsync(result.Data, "updated");
         return this.ToActionResult(result);
     }
 
@@ -83,8 +83,8 @@ public class TasksController : ControllerBase
     {
         command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (result.IsSuccess)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "moved"));
+        if (result.IsSuccess && result.Data is not null)
+            await NotifyTaskBoardChangedAsync(result.Data, "moved");
         return this.ToActionResult(result);
     }
 
@@ -95,8 +95,8 @@ public class TasksController : ControllerBase
     {
         command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (result.IsSuccess)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "updated"));
+        if (result.IsSuccess && result.Data is not null)
+            await NotifyTaskBoardChangedAsync(result.Data, "updated");
         return this.ToActionResult(result);
     }
 
@@ -108,8 +108,8 @@ public class TasksController : ControllerBase
     {
         command.TaskId = id;
         var result = await _commandDispatcher.DispatchAsync(command, HttpContext.RequestAborted);
-        if (result.IsSuccess)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "moved"));
+        if (result.IsSuccess && result.Data is not null)
+            await NotifyTaskBoardChangedAsync(result.Data, "moved");
         return this.ToActionResult(result);
     }
 
@@ -119,7 +119,16 @@ public class TasksController : ControllerBase
     {
         var result = await _commandDispatcher.DispatchAsync(new DeleteTaskCommand { TaskId = id }, HttpContext.RequestAborted);
         if (result.IsSuccess)
-            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "deleted"));
+            await _realTimeNotifier.NotifyBoardChangedAsync(new BoardChangeDto(id, "deleted", _currentUserService.UserId));
         return this.ToActionResult(result);
+    }
+
+    private Task NotifyTaskBoardChangedAsync(TaskDto task, string action)
+    {
+        var targets = task.AssignedToId is { } assigneeId
+            ? new[] { task.CreatedById, assigneeId }
+            : new[] { task.CreatedById };
+        return _realTimeNotifier.NotifyBoardChangedAsync(
+            new BoardChangeDto(task.Id, action, _currentUserService.UserId), targets);
     }
 }
