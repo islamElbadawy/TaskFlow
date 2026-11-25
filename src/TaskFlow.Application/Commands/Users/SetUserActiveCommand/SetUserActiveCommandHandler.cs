@@ -50,6 +50,8 @@ public class SetUserActiveCommandHandler : ICommandHandler<SetUserActiveCommand,
         if (user.IsActive != isActive)
         {
             user.IsActive = isActive;   // tracked entity: SaveChanges updates is_active and updated_at
+            if (!isActive)
+                user.RevokeTokens();    // prevents pre-deactivation tokens from working if the account is later reactivated
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 

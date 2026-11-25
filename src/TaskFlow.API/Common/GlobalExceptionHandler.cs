@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace TaskFlow.API.Common;
 
@@ -17,6 +19,23 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 httpContext.Request.Method, httpContext.Request.Path);
             httpContext.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
             return true;
+        }
+
+        // Concurrent insert/update hitting a unique index (e.g. duplicate email sign-up): 409 Conflict instead of 500.
+        if (exception is DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } })
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+            {
+                HttpContext = httpContext,
+                Exception = exception,
+                ProblemDetails = new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Conflict",
+                    Detail = "A record with the same unique value already exists."
+                }
+            });
         }
 
         logger.LogError(exception, "Unhandled exception for {Method} {Path}",

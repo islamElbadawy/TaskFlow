@@ -27,7 +27,7 @@ public class AdminCreateUserCommandHandler : ICommandHandler<AdminCreateUserComm
         if (existing != null)
             return Result<UserDto>.Conflict("Email already registered");
 
-        if (!Enum.TryParse<UserRole>(command.Role, ignoreCase: true, out var parsedRole))
+        if (!Enum.TryParse<UserRole>(command.Role, ignoreCase: true, out var parsedRole) || !Enum.IsDefined(parsedRole))
             return Result<UserDto>.Validation("Role must be User, Manager, or Admin.");
 
         var user = new User

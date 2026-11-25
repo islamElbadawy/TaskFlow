@@ -68,11 +68,14 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
     }
 
     [Fact]
-    public async Task Another_user_cannot_update_change_status_assign_or_delete_403()
+    public async Task Another_user_cannot_read_update_change_status_assign_or_delete_403()
     {
-        var task = await CreateTaskAsync(await factory.LoginAsync(SeedUsers.Manager), "Test: not yours", assignedToId: UserId);
+        var manager = await factory.LoginAsync(SeedUsers.Manager);
+        var task = await CreateTaskAsync(manager, "Test: not yours", assignedToId: UserId);
         var outsider = await factory.LoginAsync(SeedUsers.User2);
 
+        await (await outsider.GetAsync($"/api/tasks/{task.Id}"))
+            .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden");
         await (await outsider.PutAsJsonAsync($"/api/tasks/{task.Id}", UpdateBody("Test: hijacked")))
             .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden");
         await (await outsider.PatchAsJsonAsync($"/api/tasks/{task.Id}/status", new { status = "Done" }))
@@ -82,7 +85,7 @@ public sealed class TaskLifecycleTests(TaskFlowApiFactory factory)
         await (await outsider.DeleteAsync($"/api/tasks/{task.Id}"))
             .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden");
 
-        var unchanged = await ReadTaskAsync(await outsider.GetAsync($"/api/tasks/{task.Id}"));
+        var unchanged = await ReadTaskAsync(await manager.GetAsync($"/api/tasks/{task.Id}"));
         Assert.Equal("Todo", unchanged.Status);
         Assert.Equal(UserId, unchanged.AssignedToId);
     }

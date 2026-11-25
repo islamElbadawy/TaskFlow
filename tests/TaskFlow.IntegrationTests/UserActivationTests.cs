@@ -108,7 +108,8 @@ public sealed class UserActivationTests(TaskFlowApiFactory factory)
         var reactivated = await ReadAsync<UserBody>(await SetActiveAsync(admin, user.Id, true));
         Assert.True(reactivated.IsActive);
         Assert.Equal(HttpStatusCode.OK, (await LoginAsync(user)).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await user.Client.GetAsync("/api/users/me")).StatusCode);   // the old token works again
+        // Pre-deactivation tokens stay permanently revoked even after reactivation (must log in again).
+        Assert.Equal(HttpStatusCode.Unauthorized, (await user.Client.GetAsync("/api/users/me")).StatusCode);
     }
 
     [Fact]
