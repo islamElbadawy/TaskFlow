@@ -90,7 +90,7 @@ const PRIORITY_BAR: Record<TaskPriority, string> = {
       </div>
 
       <p class="text-slate mt-1">
-        {{ store.supportsPosition() ? i18n.t('boardHint') : i18n.t('boardHintStatusOnly') }}
+        {{ i18n.t('boardHint') }}
       </p>
 
       <!-- Filters -->
@@ -385,7 +385,8 @@ export class BoardPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.store.load();
-    this.unsubscribeBoardChanged = this.realtime.onBoardChanged(() => {
+    this.unsubscribeBoardChanged = this.realtime.onBoardChanged((change) => {
+      if (change.actorId && change.actorId === this.auth.user()?.id) return;
       if (this.drag.wasJustDragging()) return;
       if (this.syncTimer) clearTimeout(this.syncTimer);
       this.syncTimer = setTimeout(() => this.store.load(this.store.filters(), true), 250);
@@ -479,7 +480,7 @@ export class BoardPage implements OnInit, OnDestroy {
       scrollContainer: container,
       taskId: task.id,
       sourceStatus: task.status,
-      allowReorder: this.store.supportsPosition(),
+      allowReorder: true,
       onDrop: ({ taskId, targetStatus, beforeTaskId }) => {
         const current = this.store.findTask(taskId);
         if (current) {
