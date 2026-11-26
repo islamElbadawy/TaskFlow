@@ -40,7 +40,7 @@ describe('BoardApi', () => {
 
   afterEach(() => controller.verify());
 
-  it('uses sort=position and PATCH /move when backend supports position', () => {
+  it('uses sort=position and PATCH /move directly', () => {
     let loaded = 0;
     api.loadColumn('Todo', {}).subscribe((res) => {
       loaded = res.items.length;
@@ -62,7 +62,6 @@ describe('BoardApi', () => {
       },
     });
     expect(loaded).toBe(1);
-    expect(api.supportsPosition()).toBe(true);
 
     let movedStatus = '';
     api.moveTask('t1', 'InProgress', null).subscribe((task) => {
@@ -78,46 +77,16 @@ describe('BoardApi', () => {
     expect(movedStatus).toBe('InProgress');
   });
 
-  it('falls back to status-only when sort=position returns 400 or position is missing', () => {
-    let loaded = 0;
-    api.loadColumn('Todo', {}).subscribe((res) => {
-      loaded = res.items.length;
-    });
-
-    const firstReq = controller.expectOne(
-      (r) => r.url === '/api/tasks' && r.params.get('sort') === 'position',
-    );
-    firstReq.flush({ title: 'Validation', status: 400 }, { status: 400, statusText: 'Bad Request' });
-
-    const fallbackReq = controller.expectOne(
-      (r) => r.url === '/api/tasks' && !r.params.has('sort'),
-    );
-    fallbackReq.flush({
-      isSuccess: true,
-      data: {
-        items: [sampleTask(false)],
-        pageNumber: 1,
-        pageSize: 100,
-        totalCount: 1,
-        totalPages: 1,
-        hasPreviousPage: false,
-        hasNextPage: false,
+  it('propagates 404 on PATCH /move instead of silently disabling position mode', () => {
+    let errorStatus = 0;
+    api.moveTask('missing', 'Done', null).subscribe({
+      error: (err: { status: number }) => {
+        errorStatus = err.status;
       },
     });
-    expect(loaded).toBe(1);
-    expect(api.supportsPosition()).toBe(false);
 
-    let movedStatus = '';
-    api.moveTask('t1', 'Done', null).subscribe((task) => {
-      movedStatus = task.status;
-    });
-
-    const statusReq = controller.expectOne('/api/tasks/t1/status');
-    expect(statusReq.request.method).toBe('PATCH');
-    statusReq.flush({
-      isSuccess: true,
-      data: { ...sampleTask(false), status: 'Done', description: '' },
-    });
-    expect(movedStatus).toBe('Done');
+    const moveReq = controller.expectOne('/api/tasks/missing/move');
+    moveReq.flush({ title: 'NotFound', status: 404 }, { status: 404, statusText: 'Not Found' });
+    expect(errorStatus).toBe(404);
   });
 });

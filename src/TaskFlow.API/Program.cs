@@ -93,6 +93,9 @@ builder.Services.AddAuthorization();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Trust the reverse proxy (e.g. Nginx in Docker Compose on a bridge network) instead of loopback only.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 // CORS: browsers may call the API, and the SignalR hub (which sends credentials), only from the origins listed in
@@ -152,7 +155,6 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 // (dotnet ef database update / a migration bundle) and are never seeded.
 // Opt-in reset, Development only: drops the database, re-applies migrations and reseeds, e.g.
 //   dotnet run -- --Seed:ResetDatabase=true
-//   dotnet run -- --Seed:ResetDatabase=true --Seed:RunSmokeTestAndExit=true
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -165,32 +167,6 @@ if (app.Environment.IsDevelopment())
 
     await db.Database.MigrateAsync();
     await seeder.SeedAsync();
-
-    // Quick end-to-end check after a reset: create a notification through the service and read it back.
-    if (resetDatabase && app.Configuration.GetValue<bool>("Seed:RunSmokeTestAndExit"))
-    {
-        var succeeded = false;
-        try
-        {
-            var notifier = scope.ServiceProvider.GetRequiredService<TaskFlow.Application.Common.Interfaces.INotificationService>();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<TaskFlow.Domain.Interfaces.IUnitOfWork>();
-            var adminId = TaskFlow.Infrastructure.Data.Seeding.DataSeeder.UserIds.Admin;
-            var message = $"Integration test notification {Guid.NewGuid():N}";
-            await notifier.CreateNotificationAsync(adminId, message, TaskFlow.Domain.Enums.NotificationType.TaskAssigned, null);
-
-            var created = await unitOfWork.Notifications.FirstOrDefaultAsync(n => n.UserId == adminId && n.Message == message);
-            succeeded = created != null;
-            Console.WriteLine(succeeded
-                ? $"Integration test succeeded: notification {created!.Id} persisted."
-                : "Integration test failed: notification not found.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Integration test error: {ex.Message}");
-        }
-        // Exit instead of keeping the web host running during this check.
-        Environment.Exit(succeeded ? 0 : 1);
-    }
 }
 
 app.Run();

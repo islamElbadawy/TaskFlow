@@ -5,11 +5,12 @@ using TaskFlow.Application.Common.Results;
 using TaskFlow.Application.DTOs;
 using TaskFlow.Application.Queries.Comments;
 using TaskFlow.Domain.Entities;
+using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 
 namespace TaskFlow.Application.Commands.Comments;
 
-/// <summary>Any logged-in user may comment on any task (every user can read every task).</summary>
+/// <summary>Admins, the task's creator, or its assignee may comment on a task.</summary>
 public class AddCommentCommandHandler : ICommandHandler<AddCommentCommand, Result<CommentDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -26,7 +27,7 @@ public class AddCommentCommandHandler : ICommandHandler<AddCommentCommand, Resul
 
     public async Task<Result<CommentDto>> HandleAsync(AddCommentCommand command, CancellationToken cancellationToken)
     {
-        if (!_currentUserService.TryGetActor(out var actorId, out _))
+        if (!_currentUserService.TryGetActor(out var actorId, out var actorRole))
             return Result<CommentDto>.Unauthorized(CurrentUserExtensions.NoActorMessage);
 
         var taskId = command.TaskId;
@@ -35,6 +36,9 @@ public class AddCommentCommandHandler : ICommandHandler<AddCommentCommand, Resul
             t => new { t.Title, t.CreatedByUserId, t.AssignedToUserId }, cancellationToken)).SingleOrDefault();
         if (task == null)
             return Result<CommentDto>.NotFound("Task not found");
+
+        if (actorRole != UserRole.Admin && task.CreatedByUserId != actorId && task.AssignedToUserId != actorId)
+            return Result<CommentDto>.Forbidden("Only Admins, the task's creator, or its assignee can comment on this task.");
 
         var comment = new Comment { TaskId = taskId, UserId = actorId };
         comment.Edit(command.Content);

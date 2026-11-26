@@ -24,6 +24,8 @@ public interface INotificationClient
 [Authorize]
 public class NotificationHub : Hub<INotificationClient>
 {
+    public const string AdminGroup = "admins";
+
     private readonly IUserConnectionTracker _connectionTracker;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<NotificationHub> _logger;
@@ -46,6 +48,8 @@ public class NotificationHub : Hub<INotificationClient>
             return;
 
         _connectionTracker.OnConnected(userId);
+        if (Context.User?.IsInRole("Admin") == true)
+            await Groups.AddToGroupAsync(Context.ConnectionId, AdminGroup);
 
         try
         {

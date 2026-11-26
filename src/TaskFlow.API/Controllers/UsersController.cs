@@ -67,9 +67,7 @@ public class UsersController : ControllerBase
         return this.ToActionResult(result);
     }
 
-    // PUT is the correct verb for an update; POST is kept temporarily so existing clients don't break.
     [HttpPut("{id}")]
-    [HttpPost("{id}")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserCommand command)
     {
         if (!CanManageUser(id))

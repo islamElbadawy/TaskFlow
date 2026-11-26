@@ -57,10 +57,21 @@ public sealed class OutboxProcessor : IOutboxProcessor
             return 0;
 
         var sentCount = 0;
-        foreach (var row in claimed)
+        for (var i = 0; i < claimed.Count; i++)
         {
-            if (await DeliverEmailRowAsync(row, cancellationToken))
-                sentCount++;
+            try
+            {
+                if (await DeliverEmailRowAsync(claimed[i], cancellationToken))
+                    sentCount++;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Reset any remaining claimed rows so they don't stay stuck in Processing.
+                for (var j = i + 1; j < claimed.Count; j++)
+                    claimed[j].Status = OutboxStatus.Pending;
+                await _db.SaveChangesAsync(CancellationToken.None);
+                throw;
+            }
         }
 
         return sentCount;
@@ -99,13 +110,15 @@ public sealed class OutboxProcessor : IOutboxProcessor
         if (isActive != true)
             return 0;
 
-        var claimed = await ClaimPendingPushForUserAsync(userId, cancellationToken);
+        var batchSize = _outboxSettings.Value.BatchSize;
+        var claimed = await ClaimPendingPushForUserAsync(userId, batchSize, cancellationToken);
         if (claimed.Count == 0)
             return 0;
 
         var sentCount = 0;
-        foreach (var row in claimed)
+        for (var i = 0; i < claimed.Count; i++)
         {
+            var row = claimed[i];
             try
             {
                 var dto = JsonSerializer.Deserialize<NotificationDto>(row.PayloadJson, JsonOptions);
@@ -113,18 +126,18 @@ public sealed class OutboxProcessor : IOutboxProcessor
                 {
                     row.RecordFailure("Push outbox payload deserialized to null.", DateTime.UtcNow,
                         TimeSpan.FromMinutes(_outboxSettings.Value.BaseRetryDelayMinutes));
-                    await _db.SaveChangesAsync(cancellationToken);
                     continue;
                 }
 
                 await _notifier.SendAsync(userId, dto);
                 row.MarkSent(DateTime.UtcNow);
                 sentCount++;
-                await _db.SaveChangesAsync(cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                row.Status = OutboxStatus.Pending;
+                // Reset this row and all remaining claimed rows so none stay stuck in Processing.
+                for (var j = i; j < claimed.Count; j++)
+                    claimed[j].Status = OutboxStatus.Pending;
                 await _db.SaveChangesAsync(CancellationToken.None);
                 throw;
             }
@@ -133,14 +146,25 @@ public sealed class OutboxProcessor : IOutboxProcessor
                 // Leave Pending so the user's next open session retries the push.
                 row.Status = OutboxStatus.Pending;
                 row.LastError = TruncateError(ex.Message);
-                await _db.SaveChangesAsync(cancellationToken);
                 _logger.LogWarning(ex,
                     "Failed to flush push outbox {OutboxMessageId} for user {UserId}; left Pending",
                     row.Id, userId);
             }
         }
 
+        await _db.SaveChangesAsync(CancellationToken.None);
         return sentCount;
+    }
+
+    public async Task<int> RecoverStuckMessagesAsync(CancellationToken cancellationToken = default)
+    {
+        var staleBefore = DateTime.UtcNow.AddMinutes(-5);
+        return await _db.OutboxMessages
+            .Where(m => m.Status == OutboxStatus.Processing && (m.UpdatedAt ?? m.CreatedAt) < staleBefore)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.Status, OutboxStatus.Pending)
+                .SetProperty(m => m.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
     }
 
     public async Task<int> CleanupSentMessagesAsync(CancellationToken cancellationToken = default)
@@ -185,7 +209,7 @@ public sealed class OutboxProcessor : IOutboxProcessor
         }, cancellationToken);
     }
 
-    private async Task<List<OutboxMessage>> ClaimPendingPushForUserAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task<List<OutboxMessage>> ClaimPendingPushForUserAsync(Guid userId, int batchSize, CancellationToken cancellationToken)
     {
         var strategy = _db.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async ct =>
@@ -199,6 +223,7 @@ public sealed class OutboxProcessor : IOutboxProcessor
                       AND channel = {nameof(OutboxChannel.Push)}
                       AND status = {nameof(OutboxStatus.Pending)}
                     ORDER BY created_at, id
+                    LIMIT {batchSize}
                     FOR UPDATE SKIP LOCKED
                     """)
                 .ToListAsync(ct);

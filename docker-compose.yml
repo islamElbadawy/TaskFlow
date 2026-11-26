@@ -46,7 +46,7 @@ services:
       mailpit:
         condition: service_started
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
       DisableHttpsRedirection: "true"
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=taskflow;Username=taskflow;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}

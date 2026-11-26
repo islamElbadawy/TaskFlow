@@ -71,11 +71,18 @@ public sealed class CommentsTests(TaskFlowApiFactory factory)
     }
 
     [Fact]
-    public async Task Any_user_can_comment_the_author_comes_from_the_token_and_the_count_goes_up()
+    public async Task Assignee_can_comment_the_author_comes_from_the_token_and_outsiders_get_403()
     {
         var manager = await factory.LoginAsync(SeedUsers.Manager);
-        var taskId = await CreateTaskAsync(manager, "Test: comment count");
+        var taskId = await CreateTaskAsync(manager, "Test: comment count", assignedToId: DataSeeder.UserIds.User2);
         var user2 = await factory.LoginAsync(SeedUsers.User2);
+        var outsider = await factory.LoginAsync(SeedUsers.User);
+
+        // Outsider (not Admin, creator, or assignee) cannot read or comment on this task.
+        await (await outsider.GetAsync($"/api/tasks/{taskId}"))
+            .ShouldBeProblemAsync(HttpStatusCode.Forbidden, "Forbidden", "You do not have access to this task.");
+        await (await outsider.PostAsJsonAsync($"/api/tasks/{taskId}/comments", new { content = "sneaky" }))
+            .ShouldBeProblemAsync(HttpStatusCode.Forbidden);
 
         var comment = await ReadAsync<CommentBody>(await user2.PostAsJsonAsync($"/api/tasks/{taskId}/comments",
             new { content = "  Looks good to me  ", userId = DataSeeder.UserIds.Admin }));
@@ -157,7 +164,7 @@ public sealed class CommentsTests(TaskFlowApiFactory factory)
     public async Task Author_or_admin_can_delete_others_get_403()
     {
         var manager = await factory.LoginAsync(SeedUsers.Manager);
-        var taskId = await CreateTaskAsync(manager, "Test: delete comments");
+        var taskId = await CreateTaskAsync(manager, "Test: delete comments", assignedToId: DataSeeder.UserIds.User);
         var user = await factory.LoginAsync(SeedUsers.User);
         var mine = await ReadAsync<CommentBody>(await user.PostAsJsonAsync($"/api/tasks/{taskId}/comments", new { content = "mine" }));
         var forAdmin = await ReadAsync<CommentBody>(await user.PostAsJsonAsync($"/api/tasks/{taskId}/comments", new { content = "moderated" }));
@@ -211,7 +218,7 @@ public sealed class CommentsTests(TaskFlowApiFactory factory)
         return (await response.Content.ReadFromJsonAsync<ApiResult<T>>())!.Data!;
     }
 
-    private static async Task<Guid> CreateTaskAsync(HttpClient client, string title) =>
+    private static async Task<Guid> CreateTaskAsync(HttpClient client, string title, Guid? assignedToId = null) =>
         (await ReadAsync<TaskCount>(await client.PostAsJsonAsync("/api/tasks",
-            new { title, description = "", priority = "Medium" }))).Id;
+            new { title, description = "", priority = "Medium", assignedToId }))).Id;
 }

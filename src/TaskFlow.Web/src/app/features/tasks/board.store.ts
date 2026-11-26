@@ -59,7 +59,6 @@ export class BoardStore {
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly landedTaskId = this._landedTaskId.asReadonly();
-  readonly supportsPosition = this.boardApi.supportsPosition;
 
   readonly isEmpty = computed(() => {
     const c = this._columns();
@@ -179,14 +178,9 @@ export class BoardStore {
     const fromStatus = task.status;
     const sameColumn = fromStatus === targetStatus;
 
-    if (sameColumn && !this.supportsPosition()) {
-      return;
-    }
-
     const undoBeforeId = findUndoBeforeTaskId(previousColumns[fromStatus], task.id);
 
-    const effectiveBefore = this.supportsPosition() ? beforeTaskId : null;
-    this._columns.set(moveTaskOptimistic(previousColumns, task.id, targetStatus, effectiveBefore));
+    this._columns.set(moveTaskOptimistic(previousColumns, task.id, targetStatus, beforeTaskId));
     if (!sameColumn) {
       this._meta.update((m) => ({
         ...m,
@@ -196,7 +190,7 @@ export class BoardStore {
     }
     this.pulseLanded(task.id);
 
-    this.boardApi.moveTask(task.id, targetStatus, effectiveBefore).subscribe({
+    this.boardApi.moveTask(task.id, targetStatus, beforeTaskId).subscribe({
       next: () => {
         const statusLabel = this.statusLabel(targetStatus);
         const message = sameColumn

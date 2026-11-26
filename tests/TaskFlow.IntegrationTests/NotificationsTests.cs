@@ -51,10 +51,11 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
     {
         var creator = await factory.RegisterManagerAsync("Frank");
         var assignee = await factory.RegisterAsync("Grace");
-        var outsider = await factory.RegisterAsync("Heidi");
+        var adminClient = await factory.LoginAsync(SeedUsers.Admin);
         var taskId = await CreateTaskAsync(creator, "Test: commented", assignee.Id);
 
-        await CommentAsync(outsider, taskId, "From an outsider");
+        Assert.Equal(HttpStatusCode.OK,
+            (await adminClient.PostAsJsonAsync($"/api/tasks/{taskId}/comments", new { content = "From an admin" })).StatusCode);
         await CommentAsync(assignee, taskId, "From the assignee");
 
         var creators = await NotificationsAsync(creator);
@@ -64,7 +65,6 @@ public sealed class NotificationsTests(TaskFlowApiFactory factory)
 
         var assignees = await NotificationsAsync(assignee);
         Assert.Equal(new[] { "CommentAdded", "TaskAssigned" }, assignees.Select(n => n.Type));   // newest first; not their own comment
-        Assert.Empty(await NotificationsAsync(outsider));
     }
 
     [Fact]

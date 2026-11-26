@@ -3,6 +3,7 @@ import { Notification } from '../api/models';
 export interface BoardChange {
   readonly taskId: string;
   readonly action: 'created' | 'updated' | 'moved' | 'deleted';
+  readonly actorId?: string | null;
 }
 
 export abstract class RealtimeClient {

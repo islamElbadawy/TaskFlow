@@ -1,18 +1,15 @@
 using System.Collections.Concurrent;
 using TaskFlow.Application.Common.Email;
-using TaskFlow.Application.Common.Interfaces;
 using TaskFlow.Infrastructure.Services.Email;
 
 namespace TaskFlow.IntegrationTests.Infrastructure;
 
-/// <summary>Replaces the SMTP queue and sender in the test API: records every email instead of sending it. Shared by all tests,
+/// <summary>Replaces the SMTP sender in the test API: records every email instead of sending it. Shared by all tests,
 /// so look emails up by recipient (registered test users have unique addresses). Supports per-recipient failure simulation.</summary>
-public sealed class FakeEmailService : IEmailService, IEmailSender
+public sealed class FakeEmailService : IEmailSender
 {
     private readonly ConcurrentQueue<EmailMessage> _sent = new();
     private readonly ConcurrentDictionary<string, string> _failRecipients = new(StringComparer.OrdinalIgnoreCase);
-
-    public bool IsEnabled => true;
 
     public void FailEmailsTo(string email, string errorMessage = "Simulated SMTP outage") =>
         _failRecipients[email] = errorMessage;

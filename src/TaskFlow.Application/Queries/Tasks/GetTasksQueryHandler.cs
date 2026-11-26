@@ -38,8 +38,13 @@ public class GetTasksQueryHandler : IQueryHandler<GetTasksQuery, Result<Paginate
         var createdById = query.CreatedById;
         var unassigned = query.Unassigned;
         var overdue = query.Overdue;
-        var dueBefore = query.DueBefore.HasValue
-            ? DateTime.SpecifyKind(query.DueBefore.Value.ToUniversalTime(), DateTimeKind.Utc)
+        var dueBefore = query.DueBefore is { } rawDueBefore
+            ? rawDueBefore.Kind switch
+            {
+                DateTimeKind.Utc => rawDueBefore,
+                DateTimeKind.Local => rawDueBefore.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(rawDueBefore, DateTimeKind.Utc)
+            }
             : (DateTime?)null;
         var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim().ToLower();
         var now = DateTime.UtcNow;

@@ -16,15 +16,18 @@ public sealed class OutboxProcessorWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<OutboxSettings> _settings;
+    private readonly OutboxSignal _signal;
     private readonly ILogger<OutboxProcessorWorker> _logger;
 
     public OutboxProcessorWorker(
         IServiceScopeFactory scopeFactory,
         IOptions<OutboxSettings> settings,
+        OutboxSignal signal,
         ILogger<OutboxProcessorWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _settings = settings;
+        _signal = signal;
         _logger = logger;
     }
 
@@ -38,11 +41,30 @@ public sealed class OutboxProcessorWorker : BackgroundService
         }
 
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(settings.IntervalMinutes));
-        do
+        Task<bool>? timerTask = null;
+        Task? signalTask = null;
+
+        while (!stoppingToken.IsCancellationRequested)
         {
             await RunOnceAsync(stoppingToken);
+
+            timerTask ??= timer.WaitForNextTickAsync(stoppingToken).AsTask();
+            signalTask ??= _signal.WaitAsync(stoppingToken);
+
+            var completed = await Task.WhenAny(timerTask, signalTask);
+            if (completed == timerTask)
+            {
+                var hasNext = await timerTask;
+                timerTask = null;
+                if (!hasNext)
+                    break;
+            }
+            else
+            {
+                await signalTask;
+                signalTask = null;
+            }
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
     private async Task RunOnceAsync(CancellationToken stoppingToken)
@@ -51,6 +73,10 @@ public sealed class OutboxProcessorWorker : BackgroundService
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
             var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+
+            var recovered = await processor.RecoverStuckMessagesAsync(stoppingToken);
+            if (recovered > 0)
+                _logger.LogWarning("Outbox worker recovered {Count} stuck Processing row(s)", recovered);
 
             var sent = await processor.ProcessDueEmailsAsync(stoppingToken);
             if (sent > 0)

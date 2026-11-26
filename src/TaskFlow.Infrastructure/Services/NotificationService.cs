@@ -26,6 +26,7 @@ public class NotificationService : INotificationService
     private readonly IRealTimeNotifier _notifier;
     private readonly IUserConnectionTracker _connectionTracker;
     private readonly IOutboxProcessor _outboxProcessor;
+    private readonly OutboxSignal _outboxSignal;
     private readonly IOptions<OutboxSettings> _outboxSettings;
     private readonly ILogger<NotificationService> _logger;
     private readonly List<StagedEntry> _staged = new();
@@ -35,6 +36,7 @@ public class NotificationService : INotificationService
         IRealTimeNotifier notifier,
         IUserConnectionTracker connectionTracker,
         IOutboxProcessor outboxProcessor,
+        OutboxSignal outboxSignal,
         IOptions<OutboxSettings> outboxSettings,
         ILogger<NotificationService> logger)
     {
@@ -42,6 +44,7 @@ public class NotificationService : INotificationService
         _notifier = notifier;
         _connectionTracker = connectionTracker;
         _outboxProcessor = outboxProcessor;
+        _outboxSignal = outboxSignal;
         _outboxSettings = outboxSettings;
         _logger = logger;
     }
@@ -153,6 +156,18 @@ public class NotificationService : INotificationService
             }
         }
 
+        var hasEmails = toPublish.Any(e => e.EmailOutbox is not null);
+        if (!hasEmails)
+            return;
+
+        // When the background worker is enabled, wake it immediately so HTTP requests never block on SMTP.
+        if (_outboxSettings.Value.Enabled)
+        {
+            _outboxSignal.Notify();
+            return;
+        }
+
+        // When the background worker is disabled (e.g. integration tests), send inline against the configured sender.
         foreach (var entry in toPublish)
         {
             if (entry.EmailOutbox is null)
